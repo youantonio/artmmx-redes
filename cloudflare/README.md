@@ -1,4 +1,4 @@
-# ArtMMX Redes · versión 1 (Cloudflare gratis)
+# ArtMMX Redes · versión 1.2 (Cloudflare gratis)
 
 Bandeja única de **DMs de Instagram y Messenger, comentarios y reseñas de Google**, más **publicaciones programadas** para Facebook, Instagram y Google Business. Funciona completo en el **plan gratis de Cloudflare**: Workers + D1 + R2 + Cron Triggers.
 
@@ -21,13 +21,55 @@ Además trae:
 - Tokens cifrados con AES-256-GCM.
 - Página de inicio, aviso de privacidad y página de eliminación de datos (Meta las pide para aprobar la app).
 
+## Agente IA (nuevo en 1.2)
+
+Contesta **WhatsApp, DMs de Instagram y Messenger**, y propone respuestas a **reseñas de Google**. Se configura en el panel → *Agente IA*.
+
+- **Modos** (por negocio):
+  - *Apagado*.
+  - *Solo sugiere*: escribe la respuesta y una persona la aprueba.
+  - *Contesta solo*: responde lo que sabe. Si no sabe, el cliente se molesta o pide a una persona, avisa al cliente, pausa el chat y lo deja en *Esperan al equipo*.
+- **Cerebro.** *Workers AI* de Cloudflare (gratis, incluido) o *Claude* con tu llave de API. En modo *Automático* usa Claude si hay llave y, si falla, Workers AI. La llave se guarda cifrada.
+- **Cómo aprende el negocio:**
+  1. **Lo que le enseñas.** Descripción del negocio, datos, preguntas frecuentes, texto pegado o una página web que lee sola.
+  2. **Lo que no supo.** Cada pregunta sin respuesta queda en *Le falta saber*. La contestas una vez y ya la sabe.
+  3. **Lo que contesta tu equipo** (en el panel o desde el teléfono). Se guarda como ejemplo. Por defecto queda *por aprobar*.
+- **Seguridad:**
+  - Solo usa su conocimiento y no inventa precios ni horarios.
+  - Ignora intentos del cliente de cambiarle las reglas.
+  - No contesta mensajes de antes de activarlo ni de más de 3 horas.
+  - Máximo 8 respuestas por contacto por hora, para evitar bucles con otros bots.
+  - Las reseñas de Google nunca se publican solas.
+- **Pausa humana.** Si alguien del equipo contesta un chat, el agente se calla en ese chat las horas que elijas. Con *Devolver al agente* vuelve a contestar.
+
+## WhatsApp por QR (puente)
+
+WhatsApp entra por un **puente**: un programita (carpeta `puente-whatsapp/`, también descargable desde el panel en `/puente-whatsapp.zip`) que corre en una compu siempre prendida. Mantiene la sesión como WhatsApp Web y habla con el Worker por HTTPS.
+
+1. Panel → *Cuentas* → **Conectar WhatsApp**. Te da un **código de conexión** (se muestra una sola vez).
+2. En la compu: instala Node.js LTS, descomprime el puente, abre **INICIAR.cmd** y pega el código.
+3. Escanea el QR, que aparece en la ventana y en el panel, desde *WhatsApp → Dispositivos vinculados*.
+4. Opcional: **ARRANCAR-CON-WINDOWS.cmd** hace que el puente se abra solo al prender la compu.
+
+> ⚠️ **Es una conexión no oficial** (librería Baileys). WhatsApp no la permite y **puede bloquear el número**. Usa un número que no sea vital y no mandes mensajes masivos. La alternativa sin riesgo es la API oficial de WhatsApp Cloud: el agente funciona igual con ella, solo cambia el conector.
+
+Rutas del puente, con `Authorization: Bearer <token>`:
+
+- `POST /wa/estado`: QR, conectado o desconectado.
+- `POST /wa/entrante`: mensaje recibido o escrito desde el teléfono. Responde con lo que hay que enviar.
+- `GET /wa/salida`: respuestas pendientes del panel.
+- `POST /wa/ack`: confirmación de envío.
+
 Pendiente para la v2: **YouTube y TikTok**. Threads, Bluesky, LinkedIn, Pinterest y Mastodon quedaron fuera por decisión.
 
 ## Conector para Claude (MCP)
 
 En Claude → Configuración → Conectores → *Agregar conector personalizado* → `https://TU-WORKER/mcp`. Claude te manda a una pantalla de ArtMMX Redes donde entras con tu correo; si eres administrador de la plataforma, ahí eliges el negocio.
 
-Herramientas que expone: `resumen`, `listar_cuentas`, `listar_mensajes`, `ver_mensaje`, `responder_mensaje`, `cambiar_estado_mensaje`, `ocultar_comentario`, `listar_publicaciones` y `crear_publicacion`. Claude tiene exactamente los mismos permisos que el usuario que lo autorizó.
+Herramientas que expone (17):
+
+- **Bandeja y publicaciones:** `resumen`, `listar_cuentas`, `listar_mensajes`, `ver_mensaje`, `responder_mensaje`, `cambiar_estado_mensaje`, `ocultar_comentario`, `listar_publicaciones` y `crear_publicacion`.
+- **Agente IA:** `ver_agente`, `configurar_agente`, `ensenar_al_agente`, `listar_conocimiento`, `cambiar_conocimiento`, `preguntas_sin_respuesta`, `responder_pregunta_agente` y `probar_agente`. Claude no puede ver ni cambiar la llave de Claude guardada. Claude tiene exactamente los mismos permisos que el usuario que lo autorizó.
 
 Seguridad: OAuth 2.1 con registro dinámico de clientes y PKCE S256. El token de acceso dura 30 días y el refresh rota en cada renovación.
 
@@ -51,6 +93,7 @@ Seguridad: OAuth 2.1 con registro dinámico de clientes y PKCE S256. El token de
    - `META_APP_ID`, `META_APP_SECRET`, `META_VERIFY_TOKEN` (una frase que tú inventes)
    - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
    - `SECRET_KEY`: opcional. Si no la pones, se genera sola y se guarda en D1.
+6. **Workers AI.** Ya viene en `wrangler.toml` (`[ai] binding = "AI"`); no hay que hacer nada más. La cuota gratis diaria de Cloudflare alcanza para un volumen moderado de respuestas (del orden de un centenar o más al día, según cuánto conocimiento cargues); si se acaba, el agente deja los mensajes al equipo.
 
 ## App de Meta (Facebook + Instagram + DMs)
 
@@ -76,6 +119,7 @@ Seguridad: OAuth 2.1 con registro dinámico de clientes y PKCE S256. El token de
 ## Pruebas
 
 ```
-node test/test.mjs          # 91 pruebas (incluye el conector de Claude): instalación, permisos, OAuth, publicar, reintentos, bandeja, webhooks, reseñas
-node test/dev-server.mjs    # panel local en http://localhost:8787 con redes simuladas
+node --experimental-sqlite test/test.mjs      # 91 pruebas: instalación, permisos, OAuth, publicar, reintentos, bandeja, webhooks, reseñas, conector de Claude
+node --experimental-sqlite test/agente.mjs    # 70 pruebas: agente IA, aprendizaje, WhatsApp por puente, Claude/Workers AI, migración
+node --experimental-sqlite test/dev-server.mjs    # panel local en http://localhost:8787 con redes simuladas
 ```
