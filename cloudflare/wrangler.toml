@@ -1,0 +1,29 @@
+# ArtMMX Redes — Agente de redes sociales en Cloudflare Workers (plan gratis).
+# Basado en BrightBean Studio (AGPL-3.0): ver LICENSE y NOTICE.md.
+name = "artmmx-redes"
+main = "src/index.js"
+compatibility_date = "2026-03-01"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = ["/api/*", "/auth/*", "/webhooks/*", "/m/*", "/mcp", "/oauth/*", "/.well-known/*"]
+
+# Base de datos D1 (ya creada en la cuenta de ArtMMX)
+[[d1_databases]]
+binding = "DB"
+database_name = "artmmx-redes-db"
+database_id = "e2c76c9f-787d-4327-983b-23f8dafa7c73"
+
+# Fotos y videos que se suben desde el panel (Cloudflare → R2, bucket gratis)
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "artmmx-redes-media"
+
+# Cada minuto: publica lo programado y revisa la bandeja (respetando los límites del plan gratis)
+[triggers]
+crons = ["* * * * *"]
+
+[vars]
+APP_NAME = "ArtMMX Redes"
+GRAPH_VERSION = "v25.0"
