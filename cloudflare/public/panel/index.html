@@ -47,7 +47,7 @@ h2{font-size:24px;margin:0 0 4px;letter-spacing:-.02em}.sub{color:var(--muted);m
 .pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--bg2);border:1px solid var(--line);white-space:nowrap}
 .pill.ok{color:var(--ok)}.pill.bad{color:var(--bad)}.pill.warn{color:var(--warn)}
 .net{width:22px;height:22px;border-radius:7px;display:inline-grid;place-items:center;font-size:12px;font-weight:800;color:#fff;flex:none}
-.net.facebook{background:#1877f2}.net.instagram{background:linear-gradient(45deg,#f58529,#dd2a7b,#8134af)}.net.google{background:#ea4335}
+.net.facebook{background:#1877f2}.net.whatsapp{background:#25d366}.net.instagram{background:linear-gradient(45deg,#f58529,#dd2a7b,#8134af)}.net.google{background:#ea4335}
 .inbox{display:grid;grid-template-columns:380px 1fr;gap:14px;align-items:start}
 @media (max-width:860px){.inbox{grid-template-columns:1fr}}
 .list{display:flex;flex-direction:column;gap:6px;max-height:70vh;overflow:auto}
@@ -68,6 +68,20 @@ table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:10px;bor
 .empty{color:var(--muted);text-align:center;padding:30px}
 .note{background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.3);border-radius:14px;padding:12px 14px;font-size:14px;margin-bottom:14px}
 @media (max-width:600px){#who{display:none}header .logo span{display:none}#selNeg{max-width:150px!important}}
+.chat{display:flex;flex-direction:column;gap:6px;margin:10px 0;max-height:52vh;overflow:auto;padding-right:4px}
+.msg{max-width:85%;padding:9px 12px;border-radius:14px;white-space:pre-wrap;font-size:14px;line-height:1.4}
+.msg.cli{align-self:flex-start;background:var(--bg2);border:1px solid var(--line);border-bottom-left-radius:4px}
+.msg.yo{align-self:flex-end;background:rgba(124,92,255,.16);border:1px solid rgba(124,92,255,.4);border-bottom-right-radius:4px}
+.msg.bot{align-self:flex-end;background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.35);border-bottom-right-radius:4px}
+.msg small{display:block;color:var(--muted);font-size:11px;margin-top:4px}
+.sug{border:1px dashed rgba(34,211,238,.6);background:rgba(34,211,238,.06);border-radius:14px;padding:12px;margin:10px 0}
+.opts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}@media (max-width:700px){.opts{grid-template-columns:1fr}}
+.opt{border:1px solid var(--line);background:var(--bg2);border-radius:14px;padding:12px;cursor:pointer}.opt.on{border-color:var(--brand);background:rgba(124,92,255,.12)}
+.opt b{display:block;margin-bottom:4px}.opt span{color:var(--muted);font-size:13px}
+.chk{display:flex;align-items:center;gap:8px;margin:6px 0;color:var(--text);font-size:14px}.chk input{width:auto}
+.qr{background:#fff;border-radius:14px;padding:10px;width:240px;height:240px;display:grid;place-items:center;color:#333;text-align:center;font-size:13px}.qr img{width:100%;height:100%}
+.kitem{border-bottom:1px solid var(--line);padding:12px 0}.kitem:last-child{border:0}
+code.big{display:block;word-break:break-all;background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:12px;user-select:all}
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#222238;border:1px solid var(--line);padding:12px 18px;border-radius:12px;z-index:9;max-width:90vw}
 </style>
 </head>
@@ -112,6 +126,7 @@ table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:10px;bor
     <nav class="tabs" id="tabs">
       <a href="#inicio" data-t="inicio">Inicio</a>
       <a href="#bandeja" data-t="bandeja">Bandeja <span class="badge" id="bNuevos" hidden>0</span></a>
+      <a href="#agente" data-t="agente">🤖 Agente IA <span class="badge" id="bAgente" hidden>0</span></a>
       <a href="#publicar" data-t="publicar">Publicar</a>
       <a href="#cuentas" data-t="cuentas">Cuentas</a>
       <a href="#equipo" data-t="equipo">Equipo</a>
@@ -125,8 +140,10 @@ table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:10px;bor
 <script>
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const ICON = { facebook: "f", instagram: "◎", google: "G" };
-const RED = { facebook: "Facebook", instagram: "Instagram", google: "Google Business" };
+const ICON = { facebook: "f", instagram: "◎", google: "G", whatsapp: "W" };
+const RED = { facebook: "Facebook", instagram: "Instagram", google: "Google Business", whatsapp: "WhatsApp" };
+const MODO = { auto: "Contesta solo", sugerir: "Solo sugiere", apagado: "Apagado" };
+const AG = { enviada: "🤖 contestó el agente", humano: "🙋 el agente pidió ayuda", pendiente: "💡 hay sugerencia", error: "⚠️ falló la IA", descartada: "" };
 const TIPO = { dm: "💬 Mensaje", comentario: "🗨️ Comentario", resena: "⭐ Reseña" };
 const EST = { borrador: ["Borrador", ""], programado: ["Programado", "warn"], publicando: ["Publicando…", "warn"], publicado: ["Publicado", "ok"], parcial: ["Publicado en parte", "warn"], fallido: ["Falló", "bad"], pendiente: ["Pendiente", "warn"], procesando: ["Procesando", "warn"] };
 let TOKEN = null, ME = null, NEG = null, ESTADO = {};
@@ -186,7 +203,10 @@ async function start() {
 async function poll() {
   clearTimeout(poll.t);
   if (!TOKEN || (ME?.rol === "plataforma" && !NEG)) return;
-  try { const r = await api("/api/resumen"); const b = $("#bNuevos"); b.textContent = r.nuevos; b.hidden = !r.nuevos; } catch {}
+  try {
+    const r = await api("/api/resumen"); const b = $("#bNuevos"); b.textContent = r.nuevos; b.hidden = !r.nuevos;
+    const n = (r.agente?.preguntas_abiertas || 0) + (r.agente?.por_aprobar || 0); const a = $("#bAgente"); a.textContent = n; a.hidden = !n;
+  } catch {}
   poll.t = setTimeout(poll, 60000);
 }
 
@@ -212,31 +232,167 @@ const VIEWS = {
         <div class="card kpi"><div class="l">Publicados</div><div class="v" style="color:var(--ok)">${r.publicados}</div></div>
         <a class="card kpi" href="#cuentas" style="text-decoration:none;color:inherit"><div class="l">Cuentas conectadas</div><div class="v">${r.cuentas}</div></a>
       </div>
+      <a class="card" href="#agente" style="display:block;margin-top:14px;text-decoration:none;color:inherit">
+        <div class="row" style="justify-content:space-between"><b>🤖 Agente IA</b><span class="pill ${r.agente.modo === "auto" ? "ok" : r.agente.modo === "sugerir" ? "warn" : ""}">${MODO[r.agente.modo] || "Apagado"}</span></div>
+        <div class="grid g4" style="margin-top:12px">
+          <div class="kpi"><div class="l">Contestó (24 h)</div><div class="v" style="color:var(--ok)">${r.agente.contestados_24h}</div></div>
+          <div class="kpi"><div class="l">Esperan al equipo</div><div class="v" style="color:var(--warn)">${r.agente.esperando_equipo}</div></div>
+          <div class="kpi"><div class="l">No supo contestar</div><div class="v">${r.agente.preguntas_abiertas}</div></div>
+          <div class="kpi"><div class="l">Cosas que sabe</div><div class="v">${r.agente.conocimiento}</div></div></div></a>
       ${r.con_error ? `<p class="sub" style="margin-top:16px">⚠️ ${r.con_error} publicación(es) con error. <a href="#publicar">Revisar</a></p>` : ""}`;
   },
 
   async bandeja(el) {
     const q = new URLSearchParams(location.hash.split("?")[1] || "");
-    const estado = q.get("estado") || "pendientes", tipo = q.get("tipo") || "";
-    const d = await api(`/api/mensajes?estado=${estado === "todos" ? "" : estado}&tipo=${tipo}`);
-    const link = (k, v, txt, cur) => `<a class="btn sm ${cur === v ? "pri" : ""}" href="#bandeja?${new URLSearchParams({ estado, tipo, [k]: v })}">${txt}</a>`;
+    const estado = q.get("estado") || "pendientes", tipo = q.get("tipo") || "", agente = q.get("agente") || "";
+    const d = await api(`/api/mensajes?estado=${estado === "todos" ? "" : estado}&tipo=${tipo}&agente=${agente}`);
+    const link = (k, v, txt, cur) => `<a class="btn sm ${cur === v ? "pri" : ""}" href="#bandeja?${new URLSearchParams({ estado, tipo, agente, [k]: v })}">${txt}</a>`;
     el.innerHTML = `<div class="row" style="justify-content:space-between;margin-bottom:14px">
         <div><h2>Bandeja</h2><p class="sub" style="margin:0">Mensajes, comentarios y reseñas de todas tus cuentas.</p></div>
         <button class="btn sm" id="bSync">↻ Revisar ahora</button></div>
       <div class="row" style="margin-bottom:14px">${link("estado", "pendientes", "Pendientes", estado)}${link("estado", "resuelto", "Resueltos", estado)}${link("estado", "todos", "Todos", estado)}
-        <span class="muted">·</span>${link("tipo", "", "Todo", tipo)}${link("tipo", "dm", "💬 DMs", tipo)}${link("tipo", "comentario", "🗨️ Comentarios", tipo)}${link("tipo", "resena", "⭐ Reseñas", tipo)}</div>
+        <span class="muted">·</span>${link("tipo", "", "Todo", tipo)}${link("tipo", "dm", "💬 DMs", tipo)}${link("tipo", "comentario", "🗨️ Comentarios", tipo)}${link("tipo", "resena", "⭐ Reseñas", tipo)}<span class="muted">·</span>${link("agente", agente ? "" : "1", "🙋 Esperan al equipo", agente ? "1" : "x")}</div>
       <div class="inbox"><div class="list" id="lst">${d.mensajes.length ? d.mensajes.map((m) => `
         <div class="item ${m.estado === "nuevo" ? "new" : ""}" data-id="${m.id}">
           <div class="row" style="gap:8px">${net(m.red)}<b style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(m.autor_nombre)}</b><span class="muted sm">${fecha(m.recibido_en)}</span></div>
-          <div class="sm muted" style="margin-top:4px">${TIPO[m.tipo]} · ${esc(m.cuenta_nombre)} ${stars(m.calificacion)} ${m.respondido ? "· ✅ respondido" : ""}</div>
+          <div class="sm muted" style="margin-top:4px">${TIPO[m.tipo]} · ${esc(m.cuenta_nombre)} ${stars(m.calificacion)} ${m.respondido ? "· ✅ respondido" : ""}${AG[m.agente_estado] ? ` · <span style="color:var(--brand2)">${AG[m.agente_estado]}</span>` : ""}</div>
           <div class="t">${esc(m.texto)}</div></div>`).join("") : `<div class="card empty">Nada por aquí 🎉</div>`}</div>
         <div id="det" class="card"><div class="empty">Elige un mensaje para verlo y responder.</div></div></div>`;
     $("#bSync").onclick = async (e) => { e.target.disabled = true; try { const r = await api("/api/sincronizar", { method: "POST", json: {} }); toast(`Revisado: ${r.mensajes || 0} nuevo(s)`); render(); poll(); } catch (er) { toast(er.message); } e.target.disabled = false; };
     el.querySelectorAll(".item").forEach((it) => (it.onclick = () => { el.querySelectorAll(".item").forEach((x) => x.classList.remove("sel")); it.classList.add("sel"); it.classList.remove("new"); detalle(it.dataset.id); }));
   },
 
+  async agente(el) {
+    const q = new URLSearchParams(location.hash.split("?")[1] || "");
+    const sec = q.get("s") || "ajustes";
+    const { agente: a, resumen: rs, workers_ai } = await api("/api/agente");
+    const dueno = ME.rol !== "equipo";
+    const sub = (k, t) => `<a class="btn sm ${sec === k ? "pri" : ""}" href="#agente?s=${k}">${t}</a>`;
+    el.innerHTML = `<div class="row" style="justify-content:space-between;margin-bottom:6px"><div><h2>🤖 Agente IA</h2>
+        <p class="sub" style="margin:0">Contesta WhatsApp, Instagram y Messenger, y propone respuestas a reseñas. Aprende de tu negocio.</p></div>
+        <span class="pill ${a.modo === "auto" ? "ok" : a.modo === "sugerir" ? "warn" : ""}">${MODO[a.modo]}</span></div>
+      <div class="grid g4" style="margin:16px 0">
+        <div class="card kpi"><div class="l">Contestó (24 h)</div><div class="v" style="color:var(--ok)">${rs.contestados_24h}</div></div>
+        <a class="card kpi" href="#bandeja?agente=1" style="text-decoration:none;color:inherit"><div class="l">Esperan al equipo</div><div class="v" style="color:var(--warn)">${rs.esperando_equipo}</div></a>
+        <a class="card kpi" href="#agente?s=falta" style="text-decoration:none;color:inherit"><div class="l">No supo contestar</div><div class="v">${rs.preguntas_abiertas}</div></a>
+        <a class="card kpi" href="#agente?s=sabe" style="text-decoration:none;color:inherit"><div class="l">Sabe · por aprobar</div><div class="v">${rs.conocimiento}<span class="muted" style="font-size:16px"> · ${rs.por_aprobar}</span></div></a></div>
+      <div class="row" style="margin-bottom:14px">${sub("ajustes", "⚙️ Ajustes")}${sub("probar", "💬 Probar")}${sub("falta", `❓ Le falta saber${rs.preguntas_abiertas ? ` (${rs.preguntas_abiertas})` : ""}`)}${sub("sabe", `📚 Lo que sabe${rs.por_aprobar ? ` (${rs.por_aprobar} por aprobar)` : ""}`)}</div>
+      <div id="agSec"></div>`;
+    const box = $("#agSec");
+
+    if (sec === "ajustes") {
+      const dis = dueno ? "" : "disabled";
+      box.innerHTML = `<form class="card" id="fAg">
+        ${!dueno ? `<div class="note">Solo el dueño puede cambiar los ajustes.</div>` : ""}
+        <label style="margin-top:0">¿Cuánta libertad tiene?</label>
+        <div class="opts" id="agModo">${[["apagado", "Apagado", "No hace nada."], ["sugerir", "Solo sugiere", "Escribe la respuesta y tú la apruebas con un clic."], ["auto", "Contesta solo", "Responde lo que sabe; si no sabe o el cliente se molesta, avisa y te pasa el chat."]]
+          .map(([k, t, d]) => `<div class="opt ${a.modo === k ? "on" : ""}" data-m="${k}"><b>${t}</b><span>${d}</span></div>`).join("")}</div>
+        <div class="grid g2"><div><label>¿Dónde contesta?</label>
+          ${[["whatsapp", "WhatsApp"], ["instagram", "DMs de Instagram"], ["facebook", "Messenger"], ["google", "Reseñas de Google (siempre como sugerencia)"]].map(([k, t]) => `<label class="chk"><input type="checkbox" name="c_${k}" ${a.canales[k] ? "checked" : ""} ${dis}>${t}</label>`).join("")}
+          <p class="muted sm">Los comentarios públicos de Facebook e Instagram los sigues contestando tú.</p></div>
+        <div><label>Nombre del asistente</label><input name="nombre" value="${esc(a.nombre)}" maxlength="60" ${dis}>
+          <label>Tono</label><input name="tono" value="${esc(a.tono)}" placeholder="Ej.: amable, cercano, de tú, con emojis" maxlength="500" ${dis}></div></div>
+        <label>Describe tu negocio</label><textarea name="perfil" maxlength="6000" placeholder="Qué vendes, dónde estás, horario, formas de pago, envíos, cómo apartar… Todo lo que un empleado nuevo debería saber." ${dis}>${esc(a.perfil)}</textarea>
+        <label>Instrucciones especiales (opcional)</label><textarea name="instrucciones" maxlength="4000" style="min-height:80px" placeholder="Ej.: Nunca des descuentos. Si piden cotización de eventos, pide fecha y número de personas." ${dis}>${esc(a.instrucciones)}</textarea>
+        <div class="grid g2"><div><label>Cerebro (inteligencia artificial)</label>
+          <select name="proveedor" ${dis}><option value="auto" ${a.proveedor === "auto" ? "selected" : ""}>Automático: Claude si hay llave, si no Workers AI</option><option value="workers" ${a.proveedor === "workers" ? "selected" : ""}>Workers AI de Cloudflare (gratis)</option><option value="claude" ${a.proveedor === "claude" ? "selected" : ""}>Solo Claude (mejor calidad, de pago)</option></select>
+          ${!workers_ai ? `<div class="sm" style="color:var(--warn);margin-top:6px">Workers AI no está activado en el Worker.</div>` : ""}
+          <label>Llave de Claude (opcional)</label><input name="claude_key" type="password" autocomplete="off" placeholder="${a.tiene_claude ? "Guardada ✓ (escribe otra para cambiarla)" : "sk-ant-…"}" ${dis}>
+          ${a.tiene_claude && dueno ? `<label class="chk"><input type="checkbox" name="borrar_key">Borrar la llave guardada</label>` : ""}
+          <p class="muted sm">Se crea en console.anthropic.com. Se guarda cifrada y nunca se vuelve a mostrar.</p></div>
+        <div><label>¿Aprende de lo que contesta tu equipo?</label>
+          <select name="aprender" ${dis}><option value="revisar" ${a.aprender === "revisar" ? "selected" : ""}>Sí, pero yo lo apruebo antes (recomendado)</option><option value="auto" ${a.aprender === "auto" ? "selected" : ""}>Sí, de inmediato</option><option value="no" ${a.aprender === "no" ? "selected" : ""}>No</option></select>
+          <label>Cuando una persona toma un chat, el agente se calla por</label>
+          <select name="pausa_horas" ${dis}>${[1, 4, 12, 24, 48, 168].map((h) => `<option value="${h}" ${a.pausa_horas === h ? "selected" : ""}>${h < 24 ? h + " hora(s)" : h / 24 + " día(s)"}</option>`).join("")}</select></div></div>
+        <div class="err" id="agErr"></div>${dueno ? `<button class="btn pri">Guardar</button>` : ""}</form>`;
+      let modo = a.modo;
+      box.querySelectorAll(".opt").forEach((o) => (o.onclick = () => { if (!dueno) return; modo = o.dataset.m; box.querySelectorAll(".opt").forEach((x) => x.classList.toggle("on", x === o)); }));
+      $("#fAg").onsubmit = async (e) => {
+        e.preventDefault(); $("#agErr").textContent = "";
+        const f = e.target, b = { modo, nombre: f.nombre.value, tono: f.tono.value, perfil: f.perfil.value, instrucciones: f.instrucciones.value, proveedor: f.proveedor.value, aprender: f.aprender.value, pausa_horas: +f.pausa_horas.value,
+          canales: Object.fromEntries(["whatsapp", "instagram", "facebook", "google"].map((k) => [k, f["c_" + k].checked])) };
+        if (f.claude_key.value.trim()) b.claude_key = f.claude_key.value.trim();
+        if (f.borrar_key?.checked) b.claude_key = "";
+        if (modo === "auto" && a.modo !== "auto" && !confirm("El agente contestará solo a tus clientes. Antes, pruébalo en la pestaña Probar. ¿Activarlo?")) return;
+        try { await api("/api/agente", { method: "PUT", json: b }); toast("Guardado ✔"); render(); poll(); } catch (er) { $("#agErr").textContent = er.message; }
+      };
+    }
+
+    if (sec === "probar") {
+      const hist = [];
+      box.innerHTML = `<div class="grid g2" style="align-items:start"><div class="card"><div class="row" style="justify-content:space-between"><b>Escríbele como si fueras un cliente</b>
+          <select id="tCanal" style="width:auto">${["whatsapp", "instagram", "facebook", "google"].map((c) => `<option value="${c}">${RED[c]}</option>`).join("")}</select></div>
+        <div class="chat" id="tChat"><div class="muted sm">Nada se envía a nadie: es solo una prueba.</div></div>
+        <form class="row" id="fT"><input id="tMsg" placeholder="Ej.: ¿Qué horario tienen?" style="flex:1" autocomplete="off"><button class="btn pri">Enviar</button></form>
+        <button class="btn sm" id="tReset" style="margin-top:8px">Empezar de nuevo</button></div>
+        <div class="card" id="tInfo"><b>Cómo pensó</b><p class="muted sm">Aquí verás qué tan seguro estaba, si pasaría el chat a una persona y qué parte de su conocimiento usó.</p></div></div>`;
+      const draw = () => ($("#tChat").innerHTML = hist.map((x) => `<div class="msg ${x.de === "agente" ? "bot" : "cli"}">${esc(x.texto)}</div>`).join("") || `<div class="muted sm">Nada se envía a nadie: es solo una prueba.</div>`);
+      $("#tReset").onclick = () => { hist.length = 0; draw(); };
+      $("#fT").onsubmit = async (e) => {
+        e.preventDefault(); const t = $("#tMsg").value.trim(); if (!t) return;
+        const previo = hist.slice(); hist.push({ de: "cliente", texto: t }); $("#tMsg").value = ""; draw();
+        $("#tChat").insertAdjacentHTML("beforeend", `<div class="msg bot muted" id="tPens">…</div>`);
+        try {
+          const r = await api("/api/agente/probar", { method: "POST", json: { mensaje: t, canal: $("#tCanal").value, historial: previo } });
+          hist.push({ de: "agente", texto: r.respuesta || "(sin respuesta)" }); draw();
+          $("#tInfo").innerHTML = `<b>Cómo pensó</b>
+            <p>Confianza: <b>${Math.round((r.confianza || 0) * 100)}%</b> · IA: ${r.proveedor === "claude" ? "Claude" : "Workers AI"}</p>
+            <p>${r.necesita_humano ? `🙋 <b>Pasaría el chat a una persona.</b> ${esc(r.motivo || "")}` : r.confianza >= 0.6 ? "✅ Contestaría solo." : "💡 Lo dejaría como sugerencia (poca confianza)."}</p>
+            ${r.pregunta_sin_respuesta ? `<p>❓ No sabe: <i>${esc(r.pregunta_sin_respuesta)}</i> — <a href="#agente?s=falta">enséñaselo</a></p>` : ""}
+            <div class="muted sm">Conocimiento que usó:</div>${r.usados.length ? r.usados.map((u) => `<div class="sm" style="margin:4px 0">• ${esc(u.texto)}</div>`).join("") : `<div class="sm muted">Ninguno.</div>`}`;
+        } catch (er) { $("#tPens")?.remove(); hist.pop(); draw(); toast(er.message); }
+        const c = $("#tChat"); c.scrollTop = c.scrollHeight;
+      };
+    }
+
+    if (sec === "falta") {
+      const { preguntas } = await api("/api/agente/preguntas");
+      box.innerHTML = `<div class="card"><p class="muted" style="margin-top:0">Esto le preguntaron tus clientes y el agente no lo sabía. Contéstalo una vez y la próxima lo responde solo.</p>
+        ${preguntas.length ? preguntas.map((p) => `<div class="kitem"><div class="row" style="justify-content:space-between"><b>${esc(p.pregunta)}</b><span class="pill">${p.veces} vez(es)</span></div>
+          ${p.ejemplo && p.ejemplo !== p.pregunta ? `<div class="muted sm" style="margin:4px 0">Cliente: “${esc(p.ejemplo)}”</div>` : ""}
+          ${dueno ? `<div class="row" style="margin-top:8px"><input data-r="${p.id}" placeholder="La respuesta correcta…" style="flex:1"><button class="btn sm pri" data-ok="${p.id}">Enseñar</button><button class="btn sm" data-ign="${p.id}">Ignorar</button></div>` : ""}</div>`).join("")
+          : `<div class="empty">Por ahora no hay preguntas sin respuesta 🎉</div>`}</div>`;
+      box.querySelectorAll("[data-ok]").forEach((b) => (b.onclick = async () => { const v = box.querySelector(`[data-r="${b.dataset.ok}"]`).value.trim(); if (!v) return toast("Escribe la respuesta"); try { await api(`/api/agente/preguntas/${b.dataset.ok}/responder`, { method: "POST", json: { respuesta: v } }); toast("Aprendido ✔"); render(); poll(); } catch (er) { toast(er.message); } }));
+      box.querySelectorAll("[data-ign]").forEach((b) => (b.onclick = async () => { await api("/api/agente/preguntas/" + b.dataset.ign, { method: "DELETE" }); render(); poll(); }));
+    }
+
+    if (sec === "sabe") {
+      const filtro = q.get("f") || (rs.por_aprobar ? "revisar" : "");
+      const { conocimiento } = await api("/api/conocimiento" + (filtro ? "?estado=" + filtro : ""));
+      const TIPOK = { dato: "📌 Dato", faq: "❓ Pregunta frecuente", ejemplo: "💬 Ejemplo", documento: "📄 Documento" };
+      const ORIG = { manual: "lo escribiste", aprendido: "lo aprendió de una respuesta", web: "de tu página web", texto: "de un texto", pregunta: "de una pregunta sin respuesta", claude: "lo enseñó Claude" };
+      const fl = (v, t) => `<a class="btn sm ${filtro === v ? "pri" : ""}" href="#agente?s=sabe&f=${v}">${t}</a>`;
+      box.innerHTML = `<div class="grid g2" style="align-items:start">
+        <div class="card"><div class="row" style="margin-bottom:6px">${fl("revisar", "Por aprobar")}${fl("activo", "Activo")}${fl("inactivo", "Desactivado")}${fl("", "Todo")}</div>
+          ${conocimiento.length ? conocimiento.map((k) => `<div class="kitem"><div class="row" style="justify-content:space-between"><span class="sm">${TIPOK[k.tipo]} · <span class="muted">${ORIG[k.origen] || k.origen}</span></span>
+              <span class="pill ${k.estado === "activo" ? "ok" : k.estado === "revisar" ? "warn" : ""}">${k.estado === "revisar" ? "Por aprobar" : k.estado === "activo" ? "Activo" : "Desactivado"}</span></div>
+            ${k.pregunta ? `<div style="margin-top:6px"><b>${esc(k.pregunta)}</b></div>` : ""}<div style="white-space:pre-wrap;margin-top:4px">${esc(k.contenido.slice(0, 600))}${k.contenido.length > 600 ? "…" : ""}</div>
+            ${dueno ? `<div class="row" style="margin-top:8px">${k.estado !== "activo" ? `<button class="btn sm pri" data-k="${k.id}" data-v="activo">✔ Aprobar</button>` : `<button class="btn sm" data-k="${k.id}" data-v="inactivo">Desactivar</button>`}<button class="btn sm bad" data-kdel="${k.id}">Borrar</button></div>` : ""}</div>`).join("")
+            : `<div class="empty">${filtro === "revisar" ? "Nada por aprobar." : "Todavía no le has enseñado nada."}</div>`}</div>
+        ${dueno ? `<div class="grid"><form class="card" id="fK"><b>Enseñarle algo</b>
+            <label>Tipo</label><select name="tipo"><option value="dato">Un dato (precio, horario, política…)</option><option value="faq">Una pregunta frecuente con su respuesta</option></select>
+            <div id="kPreg" hidden><label>Pregunta del cliente</label><input name="pregunta" placeholder="¿Hacen envíos?"></div>
+            <label id="kLab">Dato</label><textarea name="contenido" style="min-height:80px" placeholder="Ej.: Enviamos a todo Pachuca por $50; gratis en compras mayores a $500."></textarea>
+            <button class="btn pri" style="margin-top:10px">Guardar</button></form>
+          <form class="card" id="fW"><b>Aprender de tu página web</b><p class="muted sm" style="margin:6px 0">Lee la página y guarda su texto (menú, precios, preguntas frecuentes).</p>
+            <div class="row"><input name="url" placeholder="https://tu-negocio.com/menu" style="flex:1"><button class="btn">Leer</button></div></form>
+          <form class="card" id="fX"><b>Pegar un texto</b><p class="muted sm" style="margin:6px 0">Tu menú, lista de precios, políticas… lo que quieras.</p>
+            <input name="titulo" placeholder="Nombre (ej. Menú octubre)"><textarea name="texto" style="margin-top:8px" placeholder="Pega aquí…"></textarea><button class="btn" style="margin-top:8px">Guardar</button></form></div>` : ""}</div>`;
+      box.querySelectorAll("[data-k]").forEach((b) => (b.onclick = async () => { await api("/api/conocimiento/" + b.dataset.k, { method: "PATCH", json: { estado: b.dataset.v } }); toast("Listo"); render(); poll(); }));
+      box.querySelectorAll("[data-kdel]").forEach((b) => (b.onclick = async () => { if (!confirm("¿Borrar esto de lo que sabe el agente?")) return; await api("/api/conocimiento/" + b.dataset.kdel, { method: "DELETE" }); render(); poll(); }));
+      const fK = $("#fK");
+      if (fK) {
+        fK.tipo.onchange = () => { const faq = fK.tipo.value === "faq"; $("#kPreg").hidden = !faq; $("#kLab").textContent = faq ? "Respuesta" : "Dato"; };
+        fK.onsubmit = async (e) => { e.preventDefault(); try { await api("/api/conocimiento", { method: "POST", json: { tipo: fK.tipo.value, pregunta: fK.pregunta.value, contenido: fK.contenido.value } }); toast("Aprendido ✔"); location.hash = "#agente?s=sabe&f=activo"; render(); } catch (er) { toast(er.message); } };
+        $("#fW").onsubmit = async (e) => { e.preventDefault(); const b = e.submitter || e.target.querySelector("button"); b.disabled = true; try { const r = await api("/api/conocimiento/importar", { method: "POST", json: { url: e.target.url.value } }); toast(`Leído ✔ (${r.partes} parte(s))`); location.hash = "#agente?s=sabe&f=activo"; render(); } catch (er) { toast(er.message); } b.disabled = false; };
+        $("#fX").onsubmit = async (e) => { e.preventDefault(); try { const r = await api("/api/conocimiento/importar", { method: "POST", json: { texto: e.target.texto.value, titulo: e.target.titulo.value } }); toast(`Guardado ✔ (${r.partes} parte(s))`); location.hash = "#agente?s=sabe&f=activo"; render(); } catch (er) { toast(er.message); } };
+      }
+    }
+  },
+
   async publicar(el) {
-    const [{ cuentas }, { posts }] = await Promise.all([api("/api/cuentas"), api("/api/posts")]);
+    const [{ cuentas: todas }, { posts }] = await Promise.all([api("/api/cuentas"), api("/api/posts")]);
+    const cuentas = todas.filter((c) => c.red !== "whatsapp");
     const sel = new Set(); const media = [];
     const local = new Date(Date.now() + 3600e3 - new Date().getTimezoneOffset() * 60e3).toISOString().slice(0, 16);
     el.innerHTML = `<h2>Publicar</h2><p class="sub">Escribe una vez y publícalo en varias cuentas, ahora o programado.</p>
@@ -298,14 +454,22 @@ const VIEWS = {
       ${q.get("error") ? `<div class="note" style="border-color:var(--bad)">No se pudo conectar: ${esc(q.get("error"))}</div>` : ""}
       ${dueno ? `<div class="row" style="margin-bottom:16px">
         <button class="btn pri" data-c="meta" ${ESTADO.meta ? "" : "disabled"}>${net("facebook")} Conectar Facebook + Instagram</button>
-        <button class="btn" data-c="google" ${ESTADO.google ? "" : "disabled"}>${net("google")} Conectar Google Business</button></div>
+        <button class="btn" data-c="google" ${ESTADO.google ? "" : "disabled"}>${net("google")} Conectar Google Business</button>
+        <button class="btn" id="bWa">${net("whatsapp")} Conectar WhatsApp</button></div>
         ${!ESTADO.meta || !ESTADO.google ? `<div class="note">Los botones se activan cuando el administrador configure las apps de ${!ESTADO.meta ? "Meta" : ""}${!ESTADO.meta && !ESTADO.google ? " y " : ""}${!ESTADO.google ? "Google" : ""}.</div>` : ""}` : `<div class="note">Solo el dueño del negocio puede conectar cuentas.</div>`}
       <div class="card" style="margin-bottom:16px"><b>🤖 Conecta Claude</b><p class="muted sm" style="margin:6px 0 10px">Para que Claude lea tu bandeja, responda y programe publicaciones: en Claude → Configuración → Conectores → <i>Agregar conector personalizado</i>, pega esta dirección y entra con tu correo de aquí.</p>
         <div class="row"><input readonly id="mcpUrl" value="${location.origin}/mcp" style="flex:1"><button class="btn sm" id="bCopy">Copiar</button></div></div>
       <div class="card" style="padding:0;overflow:auto"><table><tr><th>Red</th><th>Cuenta</th><th>Estado</th><th></th></tr>
       ${cuentas.length ? cuentas.map((c) => `<tr><td>${net(c.red)} ${RED[c.red]}</td><td><b>${esc(c.nombre)}</b>${c.handle ? `<div class="muted sm">${c.red === "instagram" ? "@" : ""}${esc(c.handle)}</div>` : ""}</td>
         <td><span class="pill ${c.estado === "conectada" ? "ok" : "bad"}">${c.estado === "conectada" ? "Conectada" : "Volver a conectar"}</span>${c.error ? `<div class="sm" style="color:var(--warn);margin-top:6px">${esc(c.error)}</div>` : ""}${c.sync_en ? `<div class="muted sm">Revisada: ${fecha(new Date(c.sync_en).toISOString())}</div>` : ""}</td>
-        <td>${dueno ? `<button class="btn sm bad" data-q="${c.id}">Quitar</button>` : ""}</td></tr>`).join("") : `<tr><td colspan="4" class="empty">Sin cuentas conectadas.</td></tr>`}</table></div>`;
+        <td><div class="row">${c.red === "whatsapp" ? `<button class="btn sm" data-wa="${c.id}">${c.estado === "conectada" ? "Ver" : "📷 QR"}</button>` : ""}${dueno ? `<button class="btn sm bad" data-q="${c.id}">Quitar</button>` : ""}</div></td></tr>`).join("") : `<tr><td colspan="4" class="empty">Sin cuentas conectadas.</td></tr>`}</table></div>`;
+    el.insertAdjacentHTML("beforeend", `<div id="waBox"></div>`);
+    $("#bWa") && ($("#bWa").onclick = async () => {
+      if (!confirm("WhatsApp se conecta escaneando un QR, como WhatsApp Web, con un programa \"puente\" que corre en una compu siempre prendida.\n\nOJO: es una conexión NO oficial. WhatsApp puede bloquear el número. Usa uno que no sea vital.\n\n¿Continuar?")) return;
+      try { const r = await api("/api/whatsapp", { method: "POST", json: { nombre: "WhatsApp" } }); await render(); waPanel(r.cuenta_id, r.codigo); } catch (er) { toast(er.message); }
+    });
+    el.querySelectorAll("[data-wa]").forEach((b) => (b.onclick = () => waPanel(b.dataset.wa)));
+    if (q.get("wa")) waPanel(q.get("wa"));
     $("#bCopy").onclick = () => { navigator.clipboard?.writeText($("#mcpUrl").value).then(() => toast("Copiado"), () => $("#mcpUrl").select()); };
     el.querySelectorAll("[data-c]").forEach((b) => (b.onclick = async () => { try { const { url } = await api("/api/conectar/" + b.dataset.c, { method: "POST", json: {} }); location.href = url; } catch (er) { toast(er.message); } }));
     el.querySelectorAll("[data-q]").forEach((b) => (b.onclick = async () => { if (!confirm("¿Quitar esta cuenta? Se borran sus mensajes del panel.")) return; try { await api("/api/cuentas/" + b.dataset.q, { method: "DELETE" }); render(); } catch (er) { toast(er.message); } }));
@@ -346,23 +510,75 @@ const VIEWS = {
 async function detalle(id) {
   const box = $("#det"); box.innerHTML = `<div class="empty">Cargando…</div>`;
   try {
-    const { mensaje: m, respuestas, hilo } = await api("/api/mensajes/" + id);
+    const { mensaje: m, respuestas, hilo, sugerencia: sg, pausa, conversacion } = await api("/api/mensajes/" + id);
     const otros = hilo.filter((h) => h.id !== m.id).reverse();
-    box.innerHTML = `<div class="row" style="justify-content:space-between"><div class="row">${net(m.red)}<b>${esc(m.autor_nombre)}</b> ${stars(m.calificacion)}</div><span class="muted sm">${TIPO[m.tipo]} · ${fecha(m.recibido_en)}</span></div>
-      ${otros.length ? `<div class="muted sm" style="margin-top:10px">Antes en esta conversación:</div>${otros.map((h) => `<div class="bubble" style="opacity:.75"><b class="sm">${esc(h.autor_nombre)}</b><br>${esc(h.texto)}</div>`).join("")}` : ""}
+    const QUIEN = { cliente: "", agente: "🤖 Agente", telefono: "📱 Desde tu teléfono", equipo: "👤 Equipo" };
+    const ESTR = { enviada: "✅", en_cola: "⏳ en cola", fallida: "❌ falló" };
+    const chat = m.tipo === "dm" && conversacion?.length
+      ? `<div class="chat">${conversacion.map((x) => `<div class="msg ${x.de === "cliente" ? "cli" : x.de === "agente" ? "bot" : "yo"}">${esc(x.texto)}<small>${QUIEN[x.de] ?? ""} ${fecha(x.fecha)} ${x.estado ? ESTR[x.estado] || "" : ""}</small></div>`).join("")}</div>`
+      : `${otros.length ? `<div class="muted sm" style="margin-top:10px">Antes en esta conversación:</div>${otros.map((h) => `<div class="bubble" style="opacity:.75"><b class="sm">${esc(h.autor_nombre)}</b><br>${esc(h.texto)}</div>`).join("")}` : ""}
       <div class="bubble">${esc(m.texto)}</div>
       ${m.extra?.respuesta ? `<div class="bubble me"><b class="sm">Respuesta publicada</b><br>${esc(m.extra.respuesta)}</div>` : ""}
-      ${respuestas.map((r) => `<div class="bubble me"><b class="sm">${esc(r.usuario || "Tú")} · ${r.estado === "enviada" ? "✅ enviada" : "❌ " + esc(r.error || "falló")}</b><br>${esc(r.texto)}</div>`).join("")}
+      ${respuestas.map((r) => `<div class="bubble me"><b class="sm">${esc(r.usuario || (r.origen === "agente" ? "🤖 Agente" : "Tú"))} · ${ESTR[r.estado] || ""} ${r.estado === "fallida" ? esc(r.error || "") : ""}</b><br>${esc(r.texto)}</div>`).join("")}`;
+    box.innerHTML = `<div class="row" style="justify-content:space-between"><div class="row">${net(m.red)}<b>${esc(m.autor_nombre)}</b> ${stars(m.calificacion)}${m.extra?.telefono ? `<span class="muted sm">${esc(m.extra.telefono)}</span>` : ""}</div><span class="muted sm">${TIPO[m.tipo]} · ${fecha(m.recibido_en)}</span></div>
+      ${pausa ? `<div class="note" style="margin-top:10px">⏸️ El agente no contesta este chat hasta ${fecha(new Date(pausa.hasta).toISOString())} (${esc(pausa.motivo || "lo atiende una persona")}). <button class="btn sm" id="rDevolver">🤖 Devolver al agente</button></div>` : ""}
+      ${chat}
+      ${sg && sg.estado !== "enviada" && sg.estado !== "descartada" ? `<div class="sug"><div class="row" style="justify-content:space-between"><b class="sm">${sg.estado === "humano" ? "🙋 El agente pidió ayuda" : sg.estado === "error" ? "⚠️ La IA falló" : "💡 Sugerencia del agente"}</b>${sg.confianza != null ? `<span class="muted sm">confianza ${Math.round(sg.confianza * 100)}%</span>` : ""}</div>
+        ${sg.motivo ? `<div class="muted sm" style="margin:4px 0">${esc(sg.motivo)}</div>` : ""}${sg.texto && sg.estado === "humano" ? `<div class="muted sm">Ya le avisó al cliente que lo consultaba con el equipo. Contesta tú abajo.</div>` : ""}
+        ${sg.texto && sg.estado === "pendiente" ? `<div style="margin:6px 0;white-space:pre-wrap">${esc(sg.texto)}</div><button class="btn sm" id="rUsar">Usar esta respuesta</button>` : ""}</div>` : ""}
       ${m.permalink ? `<a class="sm" href="${esc(m.permalink)}" target="_blank" rel="noopener">Ver en la red social ↗</a>` : ""}
       <label>${m.tipo === "resena" ? (m.respondido ? "Cambiar respuesta pública" : "Responder públicamente a la reseña") : m.tipo === "dm" ? "Responder por mensaje privado" : "Responder al comentario"}</label>
       <textarea id="rTexto" placeholder="Escribe tu respuesta…"></textarea>
       <div class="row" style="margin-top:10px"><button class="btn pri" id="rEnviar">Enviar</button>
+        ${m.tipo === "dm" || m.tipo === "resena" ? `<button class="btn" id="rSug">🤖 Pedir sugerencia</button>` : ""}
         ${m.tipo === "comentario" ? `<button class="btn" id="rOcultar">🙈 Ocultar comentario</button>` : ""}
-        <button class="btn" data-e="resuelto">✔ Resuelto</button><button class="btn" data-e="archivado">Archivar</button></div>`;
-    $("#rEnviar").onclick = async (e) => { e.target.disabled = true; try { await api(`/api/mensajes/${id}/responder`, { method: "POST", json: { texto: $("#rTexto").value } }); toast("Respuesta enviada ✅"); render(); poll(); } catch (er) { toast(er.message); e.target.disabled = false; } };
+        <button class="btn" data-e="resuelto">✔ Resuelto</button><button class="btn" data-e="archivado">Archivar</button></div>
+      ${m.tipo !== "comentario" ? `<p class="muted sm" style="margin-top:10px">Lo que contestes aquí el agente lo aprende (según tu ajuste en Agente IA).</p>` : ""}`;
+    const ch = box.querySelector(".chat"); if (ch) ch.scrollTop = ch.scrollHeight;
+    $("#rUsar") && ($("#rUsar").onclick = () => { $("#rTexto").value = sg.texto; $("#rTexto").focus(); });
+    $("#rDevolver") && ($("#rDevolver").onclick = async () => { try { await api(`/api/mensajes/${id}/devolver`, { method: "POST", json: {} }); toast("El agente vuelve a contestar este chat"); detalle(id); } catch (er) { toast(er.message); } });
+    $("#rSug") && ($("#rSug").onclick = async (e) => { e.target.disabled = true; e.target.textContent = "Pensando…"; try { const r = await api(`/api/mensajes/${id}/agente`, { method: "POST", json: {} }); if (r.sugerencia?.texto) $("#rTexto").value = r.sugerencia.texto; else toast(r.error || r.sugerencia?.motivo || "Sin sugerencia"); } catch (er) { toast(er.message); } e.target.disabled = false; e.target.textContent = "🤖 Pedir sugerencia"; });
+    $("#rEnviar").onclick = async (e) => { e.target.disabled = true; try { const r = await api(`/api/mensajes/${id}/responder`, { method: "POST", json: { texto: $("#rTexto").value } }); toast(r.en_cola ? "En camino por WhatsApp ⏳" : "Respuesta enviada ✅"); render(); poll(); } catch (er) { toast(er.message); e.target.disabled = false; } };
     $("#rOcultar") && ($("#rOcultar").onclick = async () => { try { await api(`/api/mensajes/${id}/ocultar`, { method: "POST", json: {} }); toast("Comentario oculto"); render(); } catch (er) { toast(er.message); } });
     box.querySelectorAll("[data-e]").forEach((b) => (b.onclick = async () => { await api("/api/mensajes/" + id, { method: "PATCH", json: { estado: b.dataset.e } }); toast("Listo"); render(); poll(); }));
   } catch (er) { box.innerHTML = `<div class="empty">${esc(er.message)}</div>`; }
+}
+
+// ---------- WhatsApp: código de conexión + QR ----------
+async function waPanel(cuentaId, codigo) {
+  const box = $("#waBox"); if (!box) return;
+  clearTimeout(waPanel.t);
+  const dueno = ME.rol !== "equipo";
+  box.innerHTML = `<div class="card" style="margin-top:16px"><div class="row" style="justify-content:space-between"><h3 style="margin:0">${net("whatsapp")} Conectar WhatsApp</h3><button class="btn sm" id="waCerrar">Cerrar</button></div>
+    <div class="grid g2" style="margin-top:12px;align-items:start">
+      <div>
+        <p style="margin-top:0"><b>1.</b> En una compu que se quede prendida, instala <a href="https://nodejs.org" target="_blank" rel="noopener">Node.js</a> (versión LTS).</p>
+        <p><b>2.</b> Descarga el <a href="/puente-whatsapp.zip" download>puente de WhatsApp (zip)</a>, descomprímelo y abre <b>INICIAR.cmd</b>.</p>
+        <p><b>3.</b> Cuando te lo pida, pega este código de conexión:</p>
+        ${codigo ? `<code class="big" id="waCod">${esc(codigo)}</code><div class="row" style="margin-top:8px"><button class="btn sm" id="waCopiar">Copiar código</button><span class="muted sm">Guárdalo: por seguridad no se vuelve a mostrar.</span></div>`
+          : dueno ? `<button class="btn sm" id="waNuevo">Generar código nuevo</button> <span class="muted sm">(el anterior deja de funcionar)</span>` : `<span class="muted sm">Pídele el código al dueño.</span>`}
+        <p><b>4.</b> Escanea el QR de la derecha desde tu teléfono: WhatsApp → <i>Dispositivos vinculados</i> → <i>Vincular un dispositivo</i>.</p>
+        <p class="muted sm">Para que arranque solo al prender la compu, abre también <b>ARRANCAR-CON-WINDOWS.cmd</b>.</p>
+        <div class="note sm">⚠️ Conexión no oficial: WhatsApp puede bloquear el número. Evita mandar mensajes masivos y usa un número que no sea vital.</div>
+      </div>
+      <div style="display:grid;justify-items:center;gap:10px"><div class="qr" id="waQr">Esperando al puente…</div><div id="waEst" class="sm muted"></div></div>
+    </div></div>`;
+  $("#waCerrar").onclick = () => { clearTimeout(waPanel.t); box.innerHTML = ""; };
+  $("#waCopiar") && ($("#waCopiar").onclick = () => navigator.clipboard?.writeText(codigo).then(() => toast("Código copiado"), () => {}));
+  $("#waNuevo") && ($("#waNuevo").onclick = async () => { if (!confirm("¿Generar un código nuevo? El puente que esté usando el anterior se desconectará.")) return; try { const r = await api(`/api/whatsapp/${cuentaId}/codigo`, { method: "POST", json: {} }); waPanel(cuentaId, r.codigo); } catch (er) { toast(er.message); } });
+  box.scrollIntoView({ behavior: "smooth" });
+  const tick = async () => {
+    if (!document.body.contains($("#waQr"))) return;
+    try {
+      const p = await api("/api/whatsapp/" + cuentaId);
+      const qr = $("#waQr"), est = $("#waEst");
+      if (p.estado === "conectado" && p.puente_en_linea) { qr.innerHTML = `<div style="font-size:40px">✅</div><b>Conectado</b><br>${esc(p.numero || "")}`; est.textContent = "El agente ya puede contestar este WhatsApp."; }
+      else if (p.qr) { qr.innerHTML = `<img src="${p.qr}" alt="QR de WhatsApp">`; est.textContent = "El QR cambia cada ~20 segundos; si falla, espera el siguiente."; }
+      else { qr.textContent = p.puente_en_linea ? "Conectando…" : "Esperando al puente… (¿ya abriste INICIAR.cmd?)"; est.textContent = p.ping ? "Última señal del puente: " + fecha(new Date(p.ping).toISOString()) : ""; }
+    } catch {}
+    waPanel.t = setTimeout(tick, 3000);
+  };
+  tick();
 }
 
 (async () => {
