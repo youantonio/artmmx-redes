@@ -5,6 +5,7 @@ import { Budget, clip, uid } from "./util.js";
 import { parse } from "./db.js";
 import { metaPublish, metaFetchInbox, metaConfigured } from "./meta.js";
 import { googlePublish, googleFetchReviews, googleConfigured } from "./google.js";
+import { getAgente, aplica, encolar, procesarCola } from "./agente.js";
 
 const BACKOFF_MS = [60e3, 5 * 60e3, 30 * 60e3]; // 1, 5 y 30 minutos (como BrightBean)
 const MAX_INTENTOS = 3;
@@ -15,6 +16,7 @@ export async function runCron(env) {
   const res = { publicados: 0, pendientes: 0, fallidos: 0, sincronizadas: 0, mensajes: 0 };
   await publishDue(env, budget, res);
   await syncInbox(env, budget, res);
+  res.agente = await procesarCola(env, { budget, max: 4 });
   return res;
 }
 
@@ -101,7 +103,7 @@ function friendly(e) {
 export async function syncInbox(env, budget, res = {}) {
   const ahora = Date.now();
   const cands = (await env.DB.prepare(
-    "SELECT * FROM cuentas WHERE estado='conectada' ORDER BY sync_en LIMIT 6"
+    "SELECT * FROM cuentas WHERE estado='conectada' AND red IN ('facebook','instagram','google') ORDER BY sync_en LIMIT 6"
   ).all()).results || [];
   for (const c of cands) {
     if (budget.left < 4) break;
@@ -110,7 +112,7 @@ export async function syncInbox(env, budget, res = {}) {
     await env.DB.prepare("UPDATE cuentas SET sync_en=? WHERE id=?").bind(ahora, c.id).run();
     try {
       const msgs = c.red === "google" ? await googleFetchReviews(env, c, budget) : await metaFetchInbox(env, c, budget);
-      res.mensajes = (res.mensajes || 0) + (await storeMessages(env, c, msgs));
+      res.mensajes = (res.mensajes || 0) + (await storeMessages(env, c, msgs)).n;
       res.sincronizadas = (res.sincronizadas || 0) + 1;
       if (c.error) await env.DB.prepare("UPDATE cuentas SET error=NULL WHERE id=?").bind(c.id).run();
     } catch (e) {
@@ -122,11 +124,18 @@ export async function syncInbox(env, budget, res = {}) {
   return res;
 }
 
-// Guarda mensajes sin duplicar (misma cuenta + mismo id externo). Devuelve cuántos son nuevos.
-export async function storeMessages(env, cuenta, msgs) {
-  if (!msgs.length) return 0;
-  const antes = await env.DB.prepare("SELECT COUNT(*) AS n FROM mensajes WHERE cuenta_id=?").bind(cuenta.id).first();
-  const stmts = msgs.map((m) => env.DB.prepare(
+// Guarda mensajes sin duplicar (misma cuenta + mismo id externo).
+// Devuelve { n: cuántos son nuevos, nuevos: [ids] } y, si el agente está activo, los pone en su cola.
+export async function storeMessages(env, cuenta, msgs, { sinCola = false } = {}) {
+  if (!msgs.length) return { n: 0, nuevos: [] };
+  const existentes = new Set();
+  for (let i = 0; i < msgs.length; i += 80) {
+    const parte = msgs.slice(i, i + 80).map((m) => clip(m.externo_id, 300));
+    const r = (await env.DB.prepare(`SELECT externo_id FROM mensajes WHERE cuenta_id=? AND externo_id IN (${parte.map(() => "?").join(",")})`).bind(cuenta.id, ...parte).all()).results || [];
+    for (const x of r) existentes.add(x.externo_id);
+  }
+  const ids = msgs.map(() => uid());
+  const stmts = msgs.map((m, i) => env.DB.prepare(
     `INSERT INTO mensajes (id, negocio_id, cuenta_id, tipo, externo_id, hilo_id, autor_id, autor_nombre, texto, calificacion, permalink, recibido_en, respondido, extra, estado)
      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?, CASE WHEN ?=1 THEN 'resuelto' ELSE 'nuevo' END)
      ON CONFLICT(cuenta_id, externo_id) DO UPDATE SET
@@ -136,9 +145,17 @@ export async function storeMessages(env, cuenta, msgs) {
        permalink=COALESCE(NULLIF(excluded.permalink,''), mensajes.permalink),
        respondido=MAX(mensajes.respondido, excluded.respondido),
        extra=CASE WHEN mensajes.tipo='resena' THEN excluded.extra ELSE mensajes.extra END`
-  ).bind(uid(), cuenta.negocio_id, cuenta.id, m.tipo, clip(m.externo_id, 300), clip(m.hilo_id, 300), clip(m.autor_id, 100), clip(m.autor_nombre, 120),
+  ).bind(ids[i], cuenta.negocio_id, cuenta.id, m.tipo, clip(m.externo_id, 300), clip(m.hilo_id, 300), clip(m.autor_id, 100), clip(m.autor_nombre, 120),
     clip(m.texto, 4000), m.calificacion ?? null, clip(m.permalink, 500), m.recibido_en, m.respondido ? 1 : 0, JSON.stringify(m.extra || {}), m.respondido ? 1 : 0));
   await env.DB.batch(stmts);
-  const despues = await env.DB.prepare("SELECT COUNT(*) AS n FROM mensajes WHERE cuenta_id=?").bind(cuenta.id).first();
-  return despues.n - antes.n;
+  const vistos = new Set();
+  const nuevosIdx = [];
+  msgs.forEach((m, i) => { const k = clip(m.externo_id, 300); if (!existentes.has(k) && !vistos.has(k)) { vistos.add(k); nuevosIdx.push(i); } });
+  const nuevos = nuevosIdx.map((i) => ids[i]);
+  if (!sinCola && nuevos.length) {
+    const ag = await getAgente(env, cuenta.negocio_id);
+    const toca = nuevosIdx.filter((i) => aplica(ag, cuenta.red, msgs[i])).map((i) => ids[i]);
+    await encolar(env, cuenta.negocio_id, toca);
+  }
+  return { n: nuevos.length, nuevos };
 }

@@ -146,7 +146,7 @@ async function issue(env, usuarioId, negocioId, clienteId) {
 const TOOLS = [
   { name: "resumen", description: "Resumen del negocio: mensajes nuevos, publicaciones programadas, publicadas, con error y cuentas conectadas.", inputSchema: { type: "object", properties: {} } },
   { name: "listar_cuentas", description: "Cuentas conectadas (Facebook, Instagram, Google Business) con su id, estado y errores.", inputSchema: { type: "object", properties: {} } },
-  { name: "listar_mensajes", description: "Lista la bandeja: DMs de Instagram/Messenger, comentarios y reseñas de Google. Por defecto solo los pendientes.",
+  { name: "listar_mensajes", description: "Lista la bandeja: chats de WhatsApp, DMs de Instagram/Messenger, comentarios y reseñas de Google. Por defecto solo los pendientes.",
     inputSchema: { type: "object", properties: {
       estado: { type: "string", enum: ["pendientes", "nuevo", "abierto", "resuelto", "archivado", "todos"], default: "pendientes" },
       tipo: { type: "string", enum: ["dm", "comentario", "resena"] }, limite: { type: "integer", minimum: 1, maximum: 100, default: 30 } } } },
@@ -162,6 +162,22 @@ const TOOLS = [
       accion: { type: "string", enum: ["borrador", "programar", "ahora"], default: "borrador" }, programado_para: { type: "string" },
       imagenes: { type: "array", items: { type: "string" }, description: "URLs https de imágenes" }, videos: { type: "array", items: { type: "string" } },
       link: { type: "string" }, formato: { type: "string", enum: ["post", "story"], default: "post" } }, required: ["texto", "cuentas"] } },
+  { name: "ver_agente", description: "Configuración y estado del agente IA que contesta WhatsApp, Instagram, Messenger y propone respuestas a reseñas: modo (apagado, sugerir, auto), canales, cuánto sabe y qué está esperando al equipo.", inputSchema: { type: "object", properties: {} } },
+  { name: "configurar_agente", description: "Cambia la configuración del agente IA. Solo manda los campos a cambiar. modo: apagado | sugerir (propone y una persona aprueba) | auto (contesta solo y pasa a humano cuando no sabe). Pide confirmación al usuario antes de poner modo 'auto'.",
+    inputSchema: { type: "object", properties: { modo: { type: "string", enum: ["apagado", "sugerir", "auto"] }, nombre: { type: "string" }, tono: { type: "string" },
+      perfil: { type: "string", description: "Descripción del negocio: qué vende, dónde está, horario, etc." }, instrucciones: { type: "string" },
+      canales: { type: "object", properties: { whatsapp: { type: "boolean" }, instagram: { type: "boolean" }, facebook: { type: "boolean" }, google: { type: "boolean" } } },
+      aprender: { type: "string", enum: ["no", "revisar", "auto"] }, pausa_horas: { type: "integer", minimum: 1, maximum: 168 } } } },
+  { name: "ensenar_al_agente", description: "Le enseña algo al agente IA del negocio. tipo 'faq' (pregunta + respuesta) o 'dato' (un hecho: precios, horarios, políticas). Lo usa de inmediato.",
+    inputSchema: { type: "object", properties: { tipo: { type: "string", enum: ["faq", "dato"], default: "dato" }, pregunta: { type: "string" }, contenido: { type: "string", maxLength: 4000 } }, required: ["contenido"] } },
+  { name: "listar_conocimiento", description: "Lo que sabe el agente. estado 'revisar' = lo que aprendió de respuestas del equipo y espera aprobación.",
+    inputSchema: { type: "object", properties: { estado: { type: "string", enum: ["activo", "revisar", "inactivo"] } } } },
+  { name: "cambiar_conocimiento", description: "Aprueba (activo), desactiva (inactivo) o borra un elemento del conocimiento del agente.",
+    inputSchema: { type: "object", properties: { id: { type: "string" }, accion: { type: "string", enum: ["aprobar", "desactivar", "borrar"] } }, required: ["id", "accion"] } },
+  { name: "preguntas_sin_respuesta", description: "Preguntas de clientes que el agente no supo contestar, ordenadas por cuántas veces se repiten.", inputSchema: { type: "object", properties: {} } },
+  { name: "responder_pregunta_agente", description: "Contesta una pregunta sin respuesta; el agente la aprende como FAQ.", inputSchema: { type: "object", properties: { id: { type: "string" }, respuesta: { type: "string" } }, required: ["id", "respuesta"] } },
+  { name: "probar_agente", description: "Simula un mensaje de cliente y devuelve lo que contestaría el agente (no envía nada).",
+    inputSchema: { type: "object", properties: { mensaje: { type: "string" }, canal: { type: "string", enum: ["whatsapp", "instagram", "facebook", "google"], default: "whatsapp" } }, required: ["mensaje"] } },
 ];
 
 export async function mcp(request, env, url, route, ctx) {
@@ -192,8 +208,8 @@ export async function mcp(request, env, url, route, ctx) {
     const ok = (result) => out.push({ jsonrpc: "2.0", id: m.id, result });
     const fail = (code, message) => out.push({ jsonrpc: "2.0", id: m.id, error: { code, message } });
     if (m.method === "initialize") ok({ protocolVersion: m.params?.protocolVersion || PROTOCOL, capabilities: { tools: { listChanged: false } },
-      serverInfo: { name: "artmmx-redes", version: "1.0.0" },
-      instructions: "Herramientas para administrar redes sociales del negocio en ArtMMX Redes. Antes de responder_mensaje o crear_publicacion con accion 'ahora', muestra el texto al usuario y pide confirmación." });
+      serverInfo: { name: "artmmx-redes", version: "1.2.0" },
+      instructions: "Herramientas para administrar redes sociales del negocio en ArtMMX Redes. Antes de responder_mensaje o crear_publicacion con accion 'ahora', muestra el texto al usuario y pide confirmación. El agente IA del negocio se administra con ver_agente, configurar_agente, ensenar_al_agente y preguntas_sin_respuesta." });
     else if (m.method === "ping") ok({});
     else if (m.method === "tools/list") ok({ tools: TOOLS });
     else if (m.method === "tools/call") {
@@ -232,6 +248,31 @@ async function runTool(name, a, call) {
       const media = [...(a.imagenes || []).map((u) => ({ url: u, tipo: "imagen" })), ...(a.videos || []).map((u) => ({ url: u, tipo: "video" }))];
       const d = await call("POST", "/api/posts", { texto: a.texto, cuentas: a.cuentas, accion: a.accion || "borrador", programado_para: a.programado_para, media, link: a.link, formato: a.formato });
       return { ok: true, id: d.id, accion: a.accion || "borrador" };
+    }
+    case "ver_agente": {
+      const d = await call("GET", "/api/agente");
+      const a = d.agente;
+      return { modo: a.modo, nombre: a.nombre, canales: a.canales, proveedor: a.proveedor, tiene_llave_claude: a.tiene_claude, aprender: a.aprender, pausa_horas: a.pausa_horas,
+        perfil: a.perfil, tono: a.tono, instrucciones: a.instrucciones, resumen: d.resumen };
+    }
+    case "configurar_agente": {
+      const permitidos = ["modo", "nombre", "tono", "perfil", "instrucciones", "canales", "aprender", "pausa_horas"];
+      const b = Object.fromEntries(Object.entries(a).filter(([k]) => permitidos.includes(k)));
+      const d = await call("PUT", "/api/agente", b);
+      return { ok: true, modo: d.agente.modo, canales: d.agente.canales };
+    }
+    case "ensenar_al_agente": return { ok: true, id: (await call("POST", "/api/conocimiento", { tipo: a.tipo === "faq" ? "faq" : "dato", pregunta: a.pregunta, contenido: a.contenido, origen: "claude" })).id };
+    case "listar_conocimiento": return (await call("GET", "/api/conocimiento" + (a.estado ? "?estado=" + encodeURIComponent(a.estado) : ""))).conocimiento
+      .map((k) => ({ id: k.id, tipo: k.tipo, pregunta: k.pregunta, contenido: k.contenido, origen: k.origen, estado: k.estado }));
+    case "cambiar_conocimiento":
+      if (a.accion === "borrar") await call("DELETE", "/api/conocimiento/" + id(a.id));
+      else await call("PATCH", "/api/conocimiento/" + id(a.id), { estado: a.accion === "aprobar" ? "activo" : "inactivo" });
+      return { ok: true };
+    case "preguntas_sin_respuesta": return (await call("GET", "/api/agente/preguntas")).preguntas.map((q) => ({ id: q.id, pregunta: q.pregunta, veces: q.veces, ejemplo_del_cliente: q.ejemplo }));
+    case "responder_pregunta_agente": await call("POST", `/api/agente/preguntas/${id(a.id)}/responder`, { respuesta: a.respuesta }); return { ok: true, aprendido: true };
+    case "probar_agente": {
+      const d = await call("POST", "/api/agente/probar", { mensaje: a.mensaje, canal: a.canal });
+      return { respuesta: d.respuesta, confianza: d.confianza, pasaria_a_humano: d.necesita_humano, motivo: d.motivo, no_sabe: d.pregunta_sin_respuesta, ia: d.proveedor, conocimiento_usado: d.usados };
     }
     default: throw new Error("Herramienta desconocida: " + name);
   }

@@ -2,10 +2,14 @@
 // Basado en BrightBean Studio (https://github.com/brightbeanxyz/brightbean-studio), licencia AGPL-3.0.
 import { json, err, HttpError, uid, randomToken, sha256hex, hashPassword, safeEqual, signState, readState, clip, Budget } from "./util.js";
 import { ensureSchema, parse } from "./db.js";
-import { metaAuthUrl, metaConnect, metaConfigured, metaReply, metaHideComment, verifyMetaSignature, parseMetaWebhook } from "./meta.js";
-import { googleAuthUrl, googleConnect, googleConfigured, googleReplyReview } from "./google.js";
+import { metaAuthUrl, metaConnect, metaConfigured, metaHideComment, verifyMetaSignature, parseMetaWebhook } from "./meta.js";
+import { googleAuthUrl, googleConnect, googleConfigured } from "./google.js";
 import { wellKnown, register, authorize, token as oauthToken, mcp } from "./mcp.js";
 import { runCron, storeMessages, publishDue, syncInbox, refreshPostState } from "./engine.js";
+import { enviarRespuesta } from "./enviar.js";
+import { getAgente, guardarAgente, agregarConocimiento, importarTexto, importarWeb, generar, ordenarTurnos, procesarMensaje, procesarCola,
+  aprenderDeHumano, responderPregunta, resumenAgente, pausado, pausar, reanudar, aplica, CANALES } from "./agente.js";
+import { rutaPuente, crearPuente, nuevoCodigo, verPuente } from "./whatsapp.js";
 
 const SESSION_MS = 14 * 24 * 3600 * 1000;
 const MAX_UPLOAD = 95 * 1024 * 1024; // el plan gratis acepta hasta 100 MB por petición
@@ -42,7 +46,9 @@ async function route(request, env, ctx) {
   if (p === "/api/instalar" && m === "POST") return instalar(request, env);
   if (p === "/api/login" && m === "POST") return login(request, env);
   if (p.startsWith("/m/") && m === "GET") return serveMedia(env, p.slice(3));
-  if (p === "/webhooks/meta") return metaWebhook(request, env, url);
+  if (p === "/webhooks/meta") return metaWebhook(request, env, url, ctx);
+  if (p.startsWith("/wa/")) return rutaPuente(request, env, url, { storeMessages, procesarMensaje, enviar: (msg, t, o) => enviarRespuesta(env, msg, t, o),
+    aprender: aprenderDeHumano, pausar, getAgente, aplica });
   if (p.startsWith("/.well-known/oauth-")) return wellKnown(url, p) || err(404, "No encontrado");
   if (p === "/oauth/register" && m === "POST") return register(request, env);
   if (p === "/oauth/authorize") return authorize(request, env, url);
@@ -112,6 +118,9 @@ async function route(request, env, ctx) {
     must(isOwner, "Solo el dueño puede quitar cuentas");
     await env.DB.batch([
       env.DB.prepare("DELETE FROM mensajes WHERE cuenta_id=? AND negocio_id=?").bind(mm[1], neg.id),
+      env.DB.prepare("DELETE FROM wa_puentes WHERE cuenta_id=? AND negocio_id=?").bind(mm[1], neg.id),
+      env.DB.prepare("DELETE FROM wa_salida WHERE cuenta_id=? AND cuenta_id IN (SELECT id FROM cuentas WHERE negocio_id=?)").bind(mm[1], neg.id),
+      env.DB.prepare("DELETE FROM chats_humano WHERE cuenta_id=? AND cuenta_id IN (SELECT id FROM cuentas WHERE negocio_id=?)").bind(mm[1], neg.id),
       env.DB.prepare("DELETE FROM destinos WHERE cuenta_id=? AND estado IN ('pendiente','procesando') AND cuenta_id IN (SELECT id FROM cuentas WHERE negocio_id=?)").bind(mm[1], neg.id),
       env.DB.prepare("DELETE FROM cuentas WHERE id=? AND negocio_id=?").bind(mm[1], neg.id),
     ]);
@@ -165,7 +174,9 @@ async function route(request, env, ctx) {
     else if (est) { where.push("m.estado=?"); args.push(est); }
     if (url.searchParams.get("tipo")) { where.push("m.tipo=?"); args.push(url.searchParams.get("tipo")); }
     if (url.searchParams.get("cuenta")) { where.push("m.cuenta_id=?"); args.push(url.searchParams.get("cuenta")); }
-    const r = await env.DB.prepare(`SELECT m.*, c.red, c.nombre AS cuenta_nombre FROM mensajes m JOIN cuentas c ON c.id=m.cuenta_id
+    if (url.searchParams.get("agente") === "1") where.push("s.estado IN ('humano','pendiente')");
+    const r = await env.DB.prepare(`SELECT m.*, c.red, c.nombre AS cuenta_nombre, s.estado AS agente_estado, s.texto AS agente_texto FROM mensajes m
+      JOIN cuentas c ON c.id=m.cuenta_id LEFT JOIN sugerencias s ON s.mensaje_id=m.id
       WHERE ${where.join(" AND ")} ORDER BY m.recibido_en DESC LIMIT 200`).bind(...args).all();
     const cnt = await env.DB.prepare("SELECT COUNT(*) AS n FROM mensajes WHERE negocio_id=? AND estado='nuevo'").bind(neg.id).first();
     return json({ mensajes: (r.results || []).map((x) => ({ ...x, extra: parse(x.extra, {}) })), nuevos: cnt.n });
@@ -175,8 +186,20 @@ async function route(request, env, ctx) {
     if (m === "GET") {
       if (msg.estado === "nuevo") await env.DB.prepare("UPDATE mensajes SET estado='abierto' WHERE id=?").bind(msg.id).run();
       const resp = (await env.DB.prepare("SELECT r.*, u.nombre AS usuario FROM respuestas r LEFT JOIN usuarios u ON u.id=r.usuario_id WHERE mensaje_id=? ORDER BY r.creado").bind(msg.id).all()).results || [];
+      const sugerencia = await env.DB.prepare("SELECT texto, confianza, motivo, proveedor, estado, creado FROM sugerencias WHERE mensaje_id=?").bind(msg.id).first();
+      const contacto = msg.autor_id || msg.hilo_id;
+      const pausa = msg.tipo === "dm" ? await pausado(env, msg.cuenta_id, contacto) : null;
+      let conversacion = [];
+      if (msg.tipo === "dm") {
+        const ent = (await env.DB.prepare("SELECT id, texto, recibido_en FROM mensajes WHERE cuenta_id=? AND tipo='dm' AND (autor_id=? OR hilo_id=?) ORDER BY recibido_en DESC LIMIT 30").bind(msg.cuenta_id, contacto, contacto).all()).results || [];
+        const ids = ent.map((x) => x.id);
+        const sal = ids.length ? ((await env.DB.prepare(`SELECT texto, creado, estado, origen FROM respuestas WHERE mensaje_id IN (${ids.map(() => "?").join(",")}) ORDER BY creado`).bind(...ids).all()).results || []) : [];
+        conversacion = [...ent.map((x) => ({ de: "cliente", texto: x.texto, fecha: x.recibido_en })),
+          ...sal.map((x) => ({ de: x.origen, texto: x.texto, fecha: x.creado.includes("T") ? x.creado : x.creado.replace(" ", "T") + "Z", estado: x.estado }))]
+          .sort((a, b) => (a.fecha < b.fecha ? -1 : 1));
+      }
       const hilo = msg.hilo_id ? ((await env.DB.prepare("SELECT id, autor_nombre, texto, recibido_en FROM mensajes WHERE cuenta_id=? AND hilo_id=? AND tipo=? ORDER BY recibido_en DESC LIMIT 20").bind(msg.cuenta_id, msg.hilo_id, msg.tipo).all()).results || []) : [];
-      return json({ mensaje: msg, respuestas: resp, hilo });
+      return json({ mensaje: msg, respuestas: resp, hilo, sugerencia, pausa, conversacion });
     }
     if (m === "PATCH") {
       const b = await body(request);
@@ -190,20 +213,31 @@ async function route(request, env, ctx) {
     const msg = await loadMsg(env, mm[1], neg.id);
     const texto = clip(String((await body(request)).texto || "").trim(), 4000);
     must(texto, "Escribe la respuesta", 400);
-    const cuenta = await env.DB.prepare("SELECT * FROM cuentas WHERE id=?").bind(msg.cuenta_id).first();
-    const rid = uid();
     try {
-      const ext = cuenta.red === "google" ? await googleReplyReview(env, cuenta, msg, texto) : await metaReply(env, cuenta, msg, texto);
-      await env.DB.batch([
-        env.DB.prepare("INSERT INTO respuestas (id, mensaje_id, usuario_id, texto, estado, externo_id) VALUES (?,?,?,?, 'enviada', ?)").bind(rid, msg.id, s.user.id, texto, clip(ext, 300)),
-        env.DB.prepare("UPDATE mensajes SET respondido=1, estado='resuelto' WHERE id=?").bind(msg.id),
-      ]);
-      return json({ ok: true });
+      const r = await enviarRespuesta(env, msg, texto, { usuarioId: s.user.id, origen: "equipo" });
+      const sug = await env.DB.prepare("SELECT texto, estado FROM sugerencias WHERE mensaje_id=?").bind(msg.id).first();
+      if (sug) await env.DB.prepare("UPDATE sugerencias SET estado=? WHERE mensaje_id=?").bind(sug.texto && sug.texto.trim() === texto ? "enviada" : "descartada", msg.id).run();
+      if (msg.tipo === "dm") {
+        const ag = await getAgente(env, neg.id);
+        if (ag.modo !== "apagado") await pausar(env, msg.cuenta_id, msg.autor_id || msg.hilo_id, ag.pausa_horas, "Lo atendió " + s.user.nombre);
+      }
+      await aprenderDeHumano(env, neg.id, msg.tipo === "resena" ? "" : msg.texto, texto, { sugerida: sug?.texto || "", mensajeId: msg.id });
+      return json({ ok: true, en_cola: !!r.cola });
     } catch (e) {
-      await env.DB.prepare("INSERT INTO respuestas (id, mensaje_id, usuario_id, texto, estado, error) VALUES (?,?,?,?, 'fallida', ?)").bind(rid, msg.id, s.user.id, texto, clip(e.message, 300)).run();
       const hint = msg.tipo === "dm" && /24|window|ventana|outside/i.test(e.message) ? " (Meta solo permite responder DMs dentro de 24 h, o hasta 7 días con el permiso Human Agent)" : "";
       return err(502, "La red social no aceptó la respuesta: " + clip(e.message, 200) + hint);
     }
+  }
+  if ((mm = p.match(/^\/api\/mensajes\/([\w-]+)\/agente$/)) && m === "POST") {
+    const msg = await loadMsg(env, mm[1], neg.id);
+    const r = await procesarMensaje(env, msg.id, { forzar: true, soloSugerir: true });
+    const sugerencia = await env.DB.prepare("SELECT texto, confianza, motivo, proveedor, estado FROM sugerencias WHERE mensaje_id=?").bind(msg.id).first();
+    return json({ ok: r.accion !== "error", error: r.error, sugerencia });
+  }
+  if ((mm = p.match(/^\/api\/mensajes\/([\w-]+)\/devolver$/)) && m === "POST") {
+    const msg = await loadMsg(env, mm[1], neg.id);
+    await reanudar(env, msg.cuenta_id, msg.autor_id || msg.hilo_id);
+    return json({ ok: true });
   }
   if ((mm = p.match(/^\/api\/mensajes\/([\w-]+)\/ocultar$/)) && m === "POST") {
     const msg = await loadMsg(env, mm[1], neg.id);
@@ -219,6 +253,91 @@ async function route(request, env, ctx) {
     const r = await syncInbox(env, new Budget(40));
     return json({ ok: true, ...r });
   }
+  // ---------- Agente IA ----------
+  if (p === "/api/agente" && m === "GET") return json({ agente: await getAgente(env, neg.id), resumen: await resumenAgente(env, neg.id), workers_ai: !!env.AI, canales: CANALES });
+  if (p === "/api/agente" && m === "PUT") {
+    must(isOwner, "Solo el dueño puede configurar el agente");
+    try { return json({ agente: await guardarAgente(env, neg.id, await body(request)) }); }
+    catch (e) { if (e.status) throw new HttpError(e.status, e.message); throw e; }
+  }
+  if (p === "/api/agente/probar" && m === "POST") {
+    const b = await body(request);
+    const texto = clip(String(b.mensaje || "").trim(), 2000);
+    must(texto, "Escribe un mensaje de prueba", 400);
+    const canal = CANALES.includes(b.canal) ? b.canal : "whatsapp";
+    const previos = (Array.isArray(b.historial) ? b.historial.slice(-10) : []).map((x) => ({ role: x.de === "agente" ? "assistant" : "user", content: clip(String(x.texto || ""), 2000) }));
+    const ag = await getAgente(env, neg.id, { conClave: true });
+    try {
+      const r = await generar(env, neg, ag, canal, ordenarTurnos([...previos, { role: "user", content: texto }]), new Budget(5));
+      return json({ ...r.salida, proveedor: r.proveedor, usados: r.usados.map((x) => ({ id: x.id, tipo: x.tipo, texto: clip(x.pregunta || x.contenido, 120) })) });
+    } catch (e) { return err(502, "La IA no respondió: " + clip(e.message, 200)); }
+  }
+  if (p === "/api/conocimiento" && m === "GET") {
+    const est = url.searchParams.get("estado");
+    const r = await env.DB.prepare(`SELECT * FROM conocimiento WHERE negocio_id=? ${est ? "AND estado=?" : ""} ORDER BY CASE estado WHEN 'revisar' THEN 0 ELSE 1 END, creado DESC LIMIT 500`)
+      .bind(...(est ? [neg.id, est] : [neg.id])).all();
+    return json({ conocimiento: r.results || [] });
+  }
+  if (p === "/api/conocimiento" && m === "POST") {
+    must(isOwner, "Solo el dueño puede enseñarle al agente");
+    const b = await body(request);
+    try { return json({ id: await agregarConocimiento(env, neg.id, { tipo: b.tipo, pregunta: b.pregunta, contenido: b.contenido, origen: b.origen === "claude" ? "claude" : "manual" }) }, 201); }
+    catch (e) { if (e.status) throw new HttpError(e.status, e.message); throw e; }
+  }
+  if (p === "/api/conocimiento/importar" && m === "POST") {
+    must(isOwner, "Solo el dueño puede enseñarle al agente");
+    const b = await body(request);
+    try {
+      const n = b.url ? await importarWeb(env, neg.id, b.url) : await importarTexto(env, neg.id, clip(String(b.texto || ""), 60000), clip(String(b.titulo || "Texto pegado"), 120));
+      return json({ ok: true, partes: n });
+    } catch (e) { if (e.status) throw new HttpError(e.status, e.message); throw e; }
+  }
+  if ((mm = p.match(/^\/api\/conocimiento\/([\w-]+)$/))) {
+    must(isOwner, "Solo el dueño puede cambiar lo que sabe el agente");
+    const k = await env.DB.prepare("SELECT id FROM conocimiento WHERE id=? AND negocio_id=?").bind(mm[1], neg.id).first();
+    must(k, "No existe", 404);
+    if (m === "DELETE") { await env.DB.prepare("DELETE FROM conocimiento WHERE id=?").bind(k.id).run(); return json({ ok: true }); }
+    if (m === "PATCH") {
+      const b = await body(request);
+      if (b.estado) must(["activo", "revisar", "inactivo"].includes(b.estado), "Estado inválido", 400);
+      await env.DB.prepare("UPDATE conocimiento SET estado=COALESCE(?,estado), pregunta=COALESCE(?,pregunta), contenido=COALESCE(?,contenido) WHERE id=?")
+        .bind(b.estado || null, typeof b.pregunta === "string" ? clip(b.pregunta, 500) : null, typeof b.contenido === "string" && b.contenido.trim() ? clip(b.contenido, 4000) : null, k.id).run();
+      return json({ ok: true });
+    }
+  }
+  if (p === "/api/agente/preguntas" && m === "GET") {
+    const r = await env.DB.prepare("SELECT * FROM preguntas_agente WHERE negocio_id=? AND estado='abierta' ORDER BY veces DESC, creado DESC LIMIT 100").bind(neg.id).all();
+    return json({ preguntas: r.results || [] });
+  }
+  if ((mm = p.match(/^\/api\/agente\/preguntas\/([\w-]+)\/responder$/)) && m === "POST") {
+    must(isOwner, "Solo el dueño puede enseñarle al agente");
+    const t = clip(String((await body(request)).respuesta || "").trim(), 4000);
+    must(t, "Escribe la respuesta", 400);
+    try { return json({ ok: true, id: await responderPregunta(env, neg.id, mm[1], t) }); }
+    catch (e) { if (e.status) throw new HttpError(e.status, e.message); throw e; }
+  }
+  if ((mm = p.match(/^\/api\/agente\/preguntas\/([\w-]+)$/)) && m === "DELETE") {
+    await env.DB.prepare("UPDATE preguntas_agente SET estado='ignorada' WHERE id=? AND negocio_id=?").bind(mm[1], neg.id).run();
+    return json({ ok: true });
+  }
+
+  // ---------- WhatsApp (puente QR) ----------
+  if (p === "/api/whatsapp" && m === "POST") {
+    must(isOwner, "Solo el dueño puede conectar WhatsApp");
+    return json(await crearPuente(env, neg.id, (await body(request)).nombre, url.origin), 201);
+  }
+  if ((mm = p.match(/^\/api\/whatsapp\/([\w-]+)$/)) && m === "GET") {
+    const r = await verPuente(env, neg.id, mm[1]);
+    must(r, "No existe", 404);
+    return json(r);
+  }
+  if ((mm = p.match(/^\/api\/whatsapp\/([\w-]+)\/codigo$/)) && m === "POST") {
+    must(isOwner, "Solo el dueño puede conectar WhatsApp");
+    const r = await nuevoCodigo(env, neg.id, mm[1], url.origin);
+    must(r, "No existe", 404);
+    return json(r);
+  }
+
   if (p === "/api/resumen" && m === "GET") {
     const q = (sql) => env.DB.prepare(sql).bind(neg.id).first();
     const [nuevos, prog, pub, fall, cuentas] = await Promise.all([
@@ -228,7 +347,7 @@ async function route(request, env, ctx) {
       q("SELECT COUNT(*) AS n FROM posts WHERE negocio_id=? AND estado IN ('fallido','parcial')"),
       q("SELECT COUNT(*) AS n FROM cuentas WHERE negocio_id=?"),
     ]);
-    return json({ nuevos: nuevos.n, programados: prog.n, publicados: pub.n, con_error: fall.n, cuentas: cuentas.n });
+    return json({ nuevos: nuevos.n, programados: prog.n, publicados: pub.n, con_error: fall.n, cuentas: cuentas.n, agente: { ...(await resumenAgente(env, neg.id)), modo: (await getAgente(env, neg.id)).modo } });
   }
   return err(404, "No encontrado");
 }
@@ -324,6 +443,7 @@ async function createPost(request, env, s, neg) {
   must(cuentasIds.length, "Elige al menos una cuenta", 400);
   const cuentas = (await env.DB.prepare(`SELECT id, red FROM cuentas WHERE negocio_id=? AND id IN (${cuentasIds.map(() => "?").join(",")})`).bind(neg.id, ...cuentasIds).all()).results || [];
   must(cuentas.length === cuentasIds.length, "Alguna cuenta no pertenece a este negocio", 400);
+  must(!cuentas.some((c) => c.red === "whatsapp"), "WhatsApp no publica posts; quítalo de la lista", 400);
   if (cuentas.some((c) => c.red === "instagram")) must(media.length, "Instagram necesita al menos una foto o video", 400);
   const accion = b.accion === "borrador" ? "borrador" : b.accion === "ahora" ? "ahora" : "programar";
   let cuando = null;
@@ -364,7 +484,7 @@ async function serveMedia(env, key) {
   return new Response(obj.body, { headers: { "Content-Type": obj.httpMetadata?.contentType || "application/octet-stream", "Cache-Control": "public, max-age=31536000, immutable" } });
 }
 
-async function metaWebhook(request, env, url) {
+async function metaWebhook(request, env, url, ctx) {
   if (request.method === "GET") {
     const ok = url.searchParams.get("hub.mode") === "subscribe" && env.META_VERIFY_TOKEN && safeEqual(url.searchParams.get("hub.verify_token") || "", env.META_VERIFY_TOKEN);
     return ok ? new Response(url.searchParams.get("hub.challenge") || "") : new Response("forbidden", { status: 403 });
@@ -379,7 +499,9 @@ async function metaWebhook(request, env, url) {
     const cs = (await env.DB.prepare("SELECT * FROM cuentas WHERE red=? AND externo_id=?").bind(it.red, it.cuentaExt).all()).results || [];
     for (const c of cs) { if (!porCuenta.has(c.id)) porCuenta.set(c.id, { c, msgs: [] }); porCuenta.get(c.id).msgs.push(it.msg); }
   }
-  for (const { c, msgs } of porCuenta.values()) await storeMessages(env, c, msgs);
+  let nuevos = 0;
+  for (const { c, msgs } of porCuenta.values()) nuevos += (await storeMessages(env, c, msgs)).n;
+  if (nuevos) ctx?.waitUntil?.(procesarCola(env, { budget: new Budget(30), max: 3 }).catch((e) => console.error("agente", e)));
   return new Response("ok");
 }
 
