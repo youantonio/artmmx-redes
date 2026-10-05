@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ArtMMX Redes · Panel</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0b0b14">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0b14;--bg2:#11111d;--card:#161626;--line:#25253a;--text:#f2f2f8;--muted:#a3a3bd;--brand:#7c5cff;--brand2:#22d3ee;--ok:#34d399;--bad:#f87171;--warn:#fbbf24;--grad:linear-gradient(120deg,#7c5cff,#22d3ee)}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;min-height:100vh;font-size:15px}
+[hidden]{display:none!important}
+a{color:var(--brand2)}
+.wrap{max-width:1180px;margin:0 auto;padding:0 16px}
+.logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;text-decoration:none;color:var(--text)}
+.logo i{width:30px;height:30px;border-radius:9px;background:var(--grad);display:grid;place-items:center;font-style:normal;font-size:14px;color:#fff}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;border-radius:11px;font-weight:600;font-size:14px;text-decoration:none;border:1px solid var(--line);background:var(--card);color:var(--text);cursor:pointer;font-family:inherit}
+.btn.pri{background:var(--grad);border:0;color:#fff}
+.btn.sm{padding:6px 11px;font-size:13px}
+.btn.bad{color:var(--bad)}
+.btn:disabled{opacity:.5;cursor:default}
+input,textarea,select{width:100%;padding:11px 12px;border-radius:11px;border:1px solid var(--line);background:var(--bg2);color:var(--text);font-size:15px;font-family:inherit}
+textarea{min-height:110px;resize:vertical}
+input:focus,textarea:focus,select:focus{outline:2px solid var(--brand);border-color:transparent}
+label{display:block;font-size:13px;color:var(--muted);margin:12px 0 6px}
+.err{color:var(--bad);font-size:14px;min-height:18px;margin:8px 0}
+.center{min-height:100vh;display:grid;place-items:center;padding:20px;background:radial-gradient(circle at 30% 10%,rgba(124,92,255,.22),transparent 50%),radial-gradient(circle at 80% 90%,rgba(34,211,238,.14),transparent 50%)}
+.box{width:100%;max-width:400px;background:var(--card);border:1px solid var(--line);border-radius:22px;padding:28px}
+.box h1{font-size:22px;margin:20px 0 6px}.box p{color:var(--muted);margin:0 0 8px}
+header{border-bottom:1px solid var(--line);background:rgba(11,11,20,.88);backdrop-filter:blur(12px);position:sticky;top:0;z-index:5}
+header .wrap{display:flex;align-items:center;justify-content:space-between;height:58px;gap:10px}
+nav.tabs{display:flex;gap:4px;overflow-x:auto;padding:10px 0;border-bottom:1px solid var(--line);margin-bottom:22px;scrollbar-width:none}
+nav.tabs a{padding:8px 14px;border-radius:10px;color:var(--muted);text-decoration:none;font-weight:600;white-space:nowrap}
+nav.tabs a.on{background:var(--card);color:var(--text)}
+.badge{display:inline-block;min-width:20px;padding:1px 7px;border-radius:999px;background:var(--brand);color:#fff;font-size:12px;margin-left:4px;text-align:center}
+main{padding-bottom:60px}
+h2{font-size:24px;margin:0 0 4px;letter-spacing:-.02em}.sub{color:var(--muted);margin:0 0 20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px}
+.grid{display:grid;gap:14px}.g4{grid-template-columns:repeat(4,1fr)}.g2{grid-template-columns:1fr 1fr}
+@media (max-width:800px){.g4{grid-template-columns:1fr 1fr}.g2{grid-template-columns:1fr}}
+.kpi .l{color:var(--muted);font-size:13px}.kpi .v{font-size:28px;font-weight:800;margin-top:4px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.muted{color:var(--muted)}.sm{font-size:13px}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--bg2);border:1px solid var(--line);white-space:nowrap}
+.pill.ok{color:var(--ok)}.pill.bad{color:var(--bad)}.pill.warn{color:var(--warn)}
+.net{width:22px;height:22px;border-radius:7px;display:inline-grid;place-items:center;font-size:12px;font-weight:800;color:#fff;flex:none}
+.net.facebook{background:#1877f2}.net.instagram{background:linear-gradient(45deg,#f58529,#dd2a7b,#8134af)}.net.google{background:#ea4335}
+.inbox{display:grid;grid-template-columns:380px 1fr;gap:14px;align-items:start}
+@media (max-width:860px){.inbox{grid-template-columns:1fr}}
+.list{display:flex;flex-direction:column;gap:6px;max-height:70vh;overflow:auto}
+.item{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;cursor:pointer}
+.item.sel{border-color:var(--brand)}.item.new{box-shadow:inset 3px 0 0 var(--brand2)}
+.item .t{font-size:14px;margin-top:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.stars{color:var(--warn);letter-spacing:1px}
+.bubble{background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:12px;margin:8px 0;white-space:pre-wrap}
+.bubble.me{background:rgba(124,92,255,.12);border-color:rgba(124,92,255,.4)}
+.accs{display:flex;flex-wrap:wrap;gap:8px}
+.acc{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:12px;border:1px solid var(--line);background:var(--bg2);cursor:pointer;user-select:none}
+.acc.on{border-color:var(--brand);background:rgba(124,92,255,.12)}
+.thumbs{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.thumbs div{position:relative;width:78px;height:78px;border-radius:10px;overflow:hidden;background:var(--bg2);border:1px solid var(--line);display:grid;place-items:center;font-size:12px}
+.thumbs img,.thumbs video{width:100%;height:100%;object-fit:cover}
+.thumbs button{position:absolute;top:3px;right:3px;border:0;border-radius:50%;width:20px;height:20px;background:#000a;color:#fff;cursor:pointer}
+table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:10px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--muted);font-size:13px;font-weight:600}
+.empty{color:var(--muted);text-align:center;padding:30px}
+.note{background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.3);border-radius:14px;padding:12px 14px;font-size:14px;margin-bottom:14px}
+@media (max-width:600px){#who{display:none}header .logo span{display:none}#selNeg{max-width:150px!important}}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#222238;border:1px solid var(--line);padding:12px 18px;border-radius:12px;z-index:9;max-width:90vw}
+</style>
+</head>
+<body>
+
+<section id="vInstalar" class="center" hidden>
+  <form class="box" id="fInstalar">
+    <a class="logo" href="/"><i>✦</i>ArtMMX Redes</a>
+    <h1>Instalación</h1>
+    <p>Crea la cuenta del administrador de la plataforma. El código de instalación está en Cloudflare → D1 → <b>artmmx-redes-db</b> → tabla <b>config</b>.</p>
+    <label>Código de instalación</label><input id="iCodigo" required autocomplete="off">
+    <label>Tu nombre</label><input id="iNombre" required>
+    <label>Correo</label><input id="iEmail" type="email" required>
+    <label>Contraseña (mínimo 8)</label><input id="iPass" type="password" minlength="8" required autocomplete="new-password">
+    <div class="err" id="iErr"></div>
+    <button class="btn pri" style="width:100%">Crear administrador</button>
+  </form>
+</section>
+
+<section id="vLogin" class="center" hidden>
+  <form class="box" id="fLogin">
+    <a class="logo" href="/"><i>✦</i>ArtMMX Redes</a>
+    <h1>Entrar</h1>
+    <p>Tu bandeja de mensajes, comentarios y reseñas, y tus publicaciones, en un solo lugar.</p>
+    <label>Correo</label><input id="lEmail" type="email" required autocomplete="username">
+    <label>Contraseña</label><input id="lPass" type="password" required autocomplete="current-password">
+    <div class="err" id="lErr"></div>
+    <button class="btn pri" style="width:100%" id="bEntrar">Entrar</button>
+  </form>
+</section>
+
+<section id="vApp" hidden>
+  <header><div class="wrap">
+    <a class="logo" href="/"><i>✦</i><span>ArtMMX Redes</span></a>
+    <div class="row">
+      <select id="selNeg" style="width:auto;max-width:200px" hidden></select>
+      <span class="muted sm" id="who"></span>
+      <button class="btn sm" id="bSalir">Salir</button>
+    </div>
+  </div></header>
+  <div class="wrap">
+    <nav class="tabs" id="tabs">
+      <a href="#inicio" data-t="inicio">Inicio</a>
+      <a href="#bandeja" data-t="bandeja">Bandeja <span class="badge" id="bNuevos" hidden>0</span></a>
+      <a href="#publicar" data-t="publicar">Publicar</a>
+      <a href="#cuentas" data-t="cuentas">Cuentas</a>
+      <a href="#equipo" data-t="equipo">Equipo</a>
+      <a href="#negocios" data-t="negocios" id="tNeg" hidden>Negocios</a>
+    </nav>
+    <main id="main"></main>
+  </div>
+</section>
+<div id="toast" hidden></div>
+
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const ICON = { facebook: "f", instagram: "◎", google: "G" };
+const RED = { facebook: "Facebook", instagram: "Instagram", google: "Google Business" };
+const TIPO = { dm: "💬 Mensaje", comentario: "🗨️ Comentario", resena: "⭐ Reseña" };
+const EST = { borrador: ["Borrador", ""], programado: ["Programado", "warn"], publicando: ["Publicando…", "warn"], publicado: ["Publicado", "ok"], parcial: ["Publicado en parte", "warn"], fallido: ["Falló", "bad"], pendiente: ["Pendiente", "warn"], procesando: ["Procesando", "warn"] };
+let TOKEN = null, ME = null, NEG = null, ESTADO = {};
+try { TOKEN = localStorage.getItem("rd_token"); NEG = localStorage.getItem("rd_neg"); } catch {}
+
+function toast(t) { const el = $("#toast"); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => (el.hidden = true), 4000); }
+const net = (r) => `<span class="net ${r}" title="${RED[r]}">${ICON[r]}</span>`;
+const fecha = (s) => s ? new Date(s).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" }) : "";
+const stars = (n) => n ? `<span class="stars">${"★".repeat(n)}${"☆".repeat(5 - n)}</span>` : "";
+
+async function api(path, opt = {}) {
+  const headers = { ...(opt.json !== undefined ? { "Content-Type": "application/json" } : {}) };
+  if (TOKEN) headers.Authorization = "Bearer " + TOKEN;
+  if (NEG && ME?.rol === "plataforma") headers["X-Negocio"] = NEG;
+  const r = await fetch(path, { method: opt.method || "GET", headers, body: opt.json !== undefined ? JSON.stringify(opt.json) : opt.body });
+  const d = await r.json().catch(() => ({}));
+  if (r.status === 401 && path !== "/api/login") { logout(true); throw new Error(d.error || "Inicia sesión"); }
+  if (!r.ok) throw new Error(d.error || "Error " + r.status);
+  return d;
+}
+function show(v) { for (const id of ["vInstalar", "vLogin", "vApp"]) $("#" + id).hidden = id !== v; }
+function logout(local) { if (!local) api("/api/logout", { method: "POST" }).catch(() => {}); TOKEN = null; ME = null; try { localStorage.removeItem("rd_token"); } catch {} show("vLogin"); }
+
+$("#fInstalar").onsubmit = async (e) => {
+  e.preventDefault(); $("#iErr").textContent = "";
+  try {
+    await api("/api/instalar", { method: "POST", json: { codigo: $("#iCodigo").value, nombre: $("#iNombre").value, email: $("#iEmail").value, password: $("#iPass").value } });
+    toast("Listo. Ahora entra con tu correo."); show("vLogin"); $("#lEmail").value = $("#iEmail").value;
+  } catch (er) { $("#iErr").textContent = er.message; }
+};
+$("#fLogin").onsubmit = async (e) => {
+  e.preventDefault(); $("#lErr").textContent = ""; $("#bEntrar").disabled = true;
+  try {
+    const d = await api("/api/login", { method: "POST", json: { email: $("#lEmail").value, password: $("#lPass").value } });
+    TOKEN = d.token; try { localStorage.setItem("rd_token", TOKEN); } catch {}
+    $("#lPass").value = ""; await start();
+  } catch (er) { $("#lErr").textContent = er.message; }
+  $("#bEntrar").disabled = false;
+};
+$("#bSalir").onclick = () => logout();
+$("#selNeg").onchange = (e) => { NEG = e.target.value; try { localStorage.setItem("rd_neg", NEG); } catch {} render(); };
+window.addEventListener("hashchange", render);
+
+async function start() {
+  const yo = await api("/api/yo"); ME = yo.usuario; ESTADO = yo;
+  $("#who").textContent = ME.nombre;
+  $("#tNeg").hidden = ME.rol !== "plataforma";
+  if (ME.rol === "plataforma") {
+    const { negocios } = await api("/api/negocios");
+    const sel = $("#selNeg"); sel.hidden = false;
+    sel.innerHTML = `<option value="">— Elige negocio —</option>` + negocios.map((n) => `<option value="${n.id}">${esc(n.nombre)}</option>`).join("");
+    if (!negocios.some((n) => n.id === NEG)) NEG = negocios[0]?.id || "";
+    sel.value = NEG || "";
+  }
+  show("vApp"); render(); poll();
+}
+async function poll() {
+  clearTimeout(poll.t);
+  if (!TOKEN || (ME?.rol === "plataforma" && !NEG)) return;
+  try { const r = await api("/api/resumen"); const b = $("#bNuevos"); b.textContent = r.nuevos; b.hidden = !r.nuevos; } catch {}
+  poll.t = setTimeout(poll, 60000);
+}
+
+function tab() { const h = location.hash.slice(1).split("?")[0]; return h || "inicio"; }
+async function render() {
+  if (!ME) return;
+  const t = tab();
+  document.querySelectorAll("#tabs a").forEach((a) => a.classList.toggle("on", a.dataset.t === t));
+  const main = $("#main");
+  if (ME.rol === "plataforma" && !NEG && t !== "negocios") { main.innerHTML = `<div class="card empty">Crea o elige un negocio para empezar. <a href="#negocios">Ir a Negocios</a></div>`; return; }
+  main.innerHTML = `<div class="empty">Cargando…</div>`;
+  try { await VIEWS[t]?.(main); } catch (e) { main.innerHTML = `<div class="card empty">😕 ${esc(e.message)}</div>`; }
+}
+
+const VIEWS = {
+  async inicio(el) {
+    const r = await api("/api/resumen");
+    el.innerHTML = `<h2>Hola, ${esc(ME.nombre)} 👋</h2><p class="sub">Resumen de tus redes.</p>
+      ${!ESTADO.meta || !ESTADO.google ? `<div class="note">⚙️ Falta configurar ${!ESTADO.meta ? "la app de <b>Meta</b> (Facebook e Instagram)" : ""}${!ESTADO.meta && !ESTADO.google ? " y " : ""}${!ESTADO.google ? "<b>Google Business</b>" : ""}. Mientras, ya puedes crear tu equipo y preparar publicaciones.</div>` : ""}
+      <div class="grid g4">
+        <a class="card kpi" href="#bandeja" style="text-decoration:none;color:inherit"><div class="l">Mensajes nuevos</div><div class="v" style="color:var(--brand2)">${r.nuevos}</div></a>
+        <a class="card kpi" href="#publicar" style="text-decoration:none;color:inherit"><div class="l">Programados</div><div class="v" style="color:var(--warn)">${r.programados}</div></a>
+        <div class="card kpi"><div class="l">Publicados</div><div class="v" style="color:var(--ok)">${r.publicados}</div></div>
+        <a class="card kpi" href="#cuentas" style="text-decoration:none;color:inherit"><div class="l">Cuentas conectadas</div><div class="v">${r.cuentas}</div></a>
+      </div>
+      ${r.con_error ? `<p class="sub" style="margin-top:16px">⚠️ ${r.con_error} publicación(es) con error. <a href="#publicar">Revisar</a></p>` : ""}`;
+  },
+
+  async bandeja(el) {
+    const q = new URLSearchParams(location.hash.split("?")[1] || "");
+    const estado = q.get("estado") || "pendientes", tipo = q.get("tipo") || "";
+    const d = await api(`/api/mensajes?estado=${estado === "todos" ? "" : estado}&tipo=${tipo}`);
+    const link = (k, v, txt, cur) => `<a class="btn sm ${cur === v ? "pri" : ""}" href="#bandeja?${new URLSearchParams({ estado, tipo, [k]: v })}">${txt}</a>`;
+    el.innerHTML = `<div class="row" style="justify-content:space-between;margin-bottom:14px">
+        <div><h2>Bandeja</h2><p class="sub" style="margin:0">Mensajes, comentarios y reseñas de todas tus cuentas.</p></div>
+        <button class="btn sm" id="bSync">↻ Revisar ahora</button></div>
+      <div class="row" style="margin-bottom:14px">${link("estado", "pendientes", "Pendientes", estado)}${link("estado", "resuelto", "Resueltos", estado)}${link("estado", "todos", "Todos", estado)}
+        <span class="muted">·</span>${link("tipo", "", "Todo", tipo)}${link("tipo", "dm", "💬 DMs", tipo)}${link("tipo", "comentario", "🗨️ Comentarios", tipo)}${link("tipo", "resena", "⭐ Reseñas", tipo)}</div>
+      <div class="inbox"><div class="list" id="lst">${d.mensajes.length ? d.mensajes.map((m) => `
+        <div class="item ${m.estado === "nuevo" ? "new" : ""}" data-id="${m.id}">
+          <div class="row" style="gap:8px">${net(m.red)}<b style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(m.autor_nombre)}</b><span class="muted sm">${fecha(m.recibido_en)}</span></div>
+          <div class="sm muted" style="margin-top:4px">${TIPO[m.tipo]} · ${esc(m.cuenta_nombre)} ${stars(m.calificacion)} ${m.respondido ? "· ✅ respondido" : ""}</div>
+          <div class="t">${esc(m.texto)}</div></div>`).join("") : `<div class="card empty">Nada por aquí 🎉</div>`}</div>
+        <div id="det" class="card"><div class="empty">Elige un mensaje para verlo y responder.</div></div></div>`;
+    $("#bSync").onclick = async (e) => { e.target.disabled = true; try { const r = await api("/api/sincronizar", { method: "POST", json: {} }); toast(`Revisado: ${r.mensajes || 0} nuevo(s)`); render(); poll(); } catch (er) { toast(er.message); } e.target.disabled = false; };
+    el.querySelectorAll(".item").forEach((it) => (it.onclick = () => { el.querySelectorAll(".item").forEach((x) => x.classList.remove("sel")); it.classList.add("sel"); it.classList.remove("new"); detalle(it.dataset.id); }));
+  },
+
+  async publicar(el) {
+    const [{ cuentas }, { posts }] = await Promise.all([api("/api/cuentas"), api("/api/posts")]);
+    const sel = new Set(); const media = [];
+    const local = new Date(Date.now() + 3600e3 - new Date().getTimezoneOffset() * 60e3).toISOString().slice(0, 16);
+    el.innerHTML = `<h2>Publicar</h2><p class="sub">Escribe una vez y publícalo en varias cuentas, ahora o programado.</p>
+      <div class="grid g2" style="align-items:start">
+      <div class="card">
+        <label style="margin-top:0">Cuentas</label>
+        <div class="accs" id="accs">${cuentas.length ? cuentas.map((c) => `<div class="acc" data-id="${c.id}" data-red="${c.red}">${net(c.red)}<span>${esc(c.nombre)}</span></div>`).join("") : `<span class="muted">Primero <a href="#cuentas">conecta una cuenta</a>.</span>`}</div>
+        <label>Texto</label><textarea id="pTexto" placeholder="¿Qué quieres publicar?"></textarea>
+        <div class="muted sm" id="pCount">0 caracteres · Instagram máx. 2,200</div>
+        <label>Fotos o video</label>
+        <div class="row"><input type="file" id="pFile" accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime" multiple style="flex:1"><span class="muted sm">o</span>
+          <input id="pUrl" placeholder="Pega un link https://…" style="flex:1"><button class="btn sm" id="pAddUrl">Agregar</button></div>
+        <div class="thumbs" id="thumbs"></div>
+        <label>Link (opcional, para Facebook y Google)</label><input id="pLink" placeholder="https://…">
+        <label>Formato en Instagram</label><select id="pFormato"><option value="post">Publicación / Reel / Carrusel</option><option value="story">Historia</option></select>
+        <label>¿Cuándo?</label><input type="datetime-local" id="pCuando" value="${local}">
+        <div class="err" id="pErr"></div>
+        <div class="row"><button class="btn pri" data-a="programar">🗓️ Programar</button><button class="btn" data-a="ahora">🚀 Publicar ahora</button><button class="btn" data-a="borrador">Guardar borrador</button></div>
+      </div>
+      <div><h3 style="margin:0 0 10px">Tus publicaciones</h3><div class="list" style="max-height:none">${posts.length ? posts.map((p) => `
+        <div class="card" style="padding:14px">
+          <div class="row" style="justify-content:space-between"><span class="pill ${EST[p.estado]?.[1] || ""}">${EST[p.estado]?.[0] || p.estado}</span><span class="muted sm">${fecha(p.programado_para || p.creado)}</span></div>
+          <div style="margin:8px 0;white-space:pre-wrap">${esc(p.texto.slice(0, 220))}${p.texto.length > 220 ? "…" : ""}</div>
+          ${p.media.length ? `<div class="muted sm">📎 ${p.media.length} archivo(s)</div>` : ""}
+          <div style="margin-top:8px;display:grid;gap:6px">${p.destinos.map((d) => `<div class="row sm">${net(d.red)}<span>${esc(d.nombre)}</span><span class="pill ${EST[d.estado]?.[1] || ""}">${EST[d.estado]?.[0] || d.estado}</span>${d.permalink ? `<a href="${esc(d.permalink)}" target="_blank" rel="noopener">ver ↗</a>` : ""}${d.error ? `<span style="color:var(--bad);flex-basis:100%">${esc(d.error)}</span>` : ""}</div>`).join("")}</div>
+          <div class="row" style="margin-top:10px">${["fallido", "parcial"].includes(p.estado) ? `<button class="btn sm" data-retry="${p.id}">↻ Reintentar</button>` : ""}${p.estado !== "publicando" ? `<button class="btn sm bad" data-del="${p.id}">Eliminar</button>` : ""}</div>
+        </div>`).join("") : `<div class="card empty">Aún no hay publicaciones.</div>`}</div></div></div>`;
+    el.querySelectorAll(".acc").forEach((a) => (a.onclick = () => { a.classList.toggle("on"); a.classList.contains("on") ? sel.add(a.dataset.id) : sel.delete(a.dataset.id); }));
+    $("#pTexto").oninput = (e) => ($("#pCount").textContent = `${e.target.value.length} caracteres · Instagram máx. 2,200`);
+    const drawThumbs = () => ($("#thumbs").innerHTML = media.map((m, i) => `<div>${m.tipo === "video" ? `<video src="${esc(m.url)}" muted></video>` : `<img src="${esc(m.url)}" alt="">`}<button data-rm="${i}" title="Quitar">×</button></div>`).join(""));
+    $("#thumbs").onclick = (e) => { if (e.target.dataset.rm !== undefined) { media.splice(+e.target.dataset.rm, 1); drawThumbs(); } };
+    $("#pAddUrl").onclick = () => { const u = $("#pUrl").value.trim(); if (!/^https:\/\//.test(u)) return toast("El link debe empezar con https://"); media.push({ url: u, tipo: /\.(mp4|mov)(\?|$)/i.test(u) ? "video" : "imagen" }); $("#pUrl").value = ""; drawThumbs(); };
+    $("#pFile").onchange = async (e) => {
+      for (const f of e.target.files) {
+        toast("Subiendo " + f.name + "…");
+        const fd = new FormData(); fd.append("archivo", f);
+        try { media.push(await api("/api/media", { method: "POST", body: fd })); drawThumbs(); } catch (er) { toast(er.message); }
+      }
+      e.target.value = ""; toast("Listo");
+    };
+    el.querySelectorAll("[data-a]").forEach((b) => (b.onclick = async () => {
+      $("#pErr").textContent = "";
+      const accion = b.dataset.a;
+      try {
+        await api("/api/posts", { method: "POST", json: { texto: $("#pTexto").value, media, link: $("#pLink").value.trim() || null, formato: $("#pFormato").value, cuentas: [...sel], accion, programado_para: new Date($("#pCuando").value).toISOString() } });
+        toast(accion === "ahora" ? "En camino: se publica en menos de un minuto" : accion === "programar" ? "Programado ✔" : "Borrador guardado"); render();
+      } catch (er) { $("#pErr").textContent = er.message; }
+    }));
+    el.querySelectorAll("[data-del]").forEach((b) => (b.onclick = async () => { if (!confirm("¿Eliminar esta publicación del panel? (No la borra de la red social si ya se publicó)")) return; try { await api("/api/posts/" + b.dataset.del, { method: "DELETE" }); render(); } catch (er) { toast(er.message); } }));
+    el.querySelectorAll("[data-retry]").forEach((b) => (b.onclick = async () => { try { await api(`/api/posts/${b.dataset.retry}/reintentar`, { method: "POST", json: {} }); toast("Reintentando…"); setTimeout(render, 2500); } catch (er) { toast(er.message); } }));
+  },
+
+  async cuentas(el) {
+    const q = new URLSearchParams(location.hash.split("?")[1] || "");
+    if (q.get("ok")) toast(`✅ Conectadas ${q.get("ok")} cuenta(s)`);
+    const { cuentas } = await api("/api/cuentas");
+    const dueno = ME.rol !== "equipo";
+    el.innerHTML = `<h2>Cuentas</h2><p class="sub">Conecta tus redes. Con Facebook se conectan también tu Instagram profesional y los DMs de ambos.</p>
+      ${q.get("error") ? `<div class="note" style="border-color:var(--bad)">No se pudo conectar: ${esc(q.get("error"))}</div>` : ""}
+      ${dueno ? `<div class="row" style="margin-bottom:16px">
+        <button class="btn pri" data-c="meta" ${ESTADO.meta ? "" : "disabled"}>${net("facebook")} Conectar Facebook + Instagram</button>
+        <button class="btn" data-c="google" ${ESTADO.google ? "" : "disabled"}>${net("google")} Conectar Google Business</button></div>
+        ${!ESTADO.meta || !ESTADO.google ? `<div class="note">Los botones se activan cuando el administrador configure las apps de ${!ESTADO.meta ? "Meta" : ""}${!ESTADO.meta && !ESTADO.google ? " y " : ""}${!ESTADO.google ? "Google" : ""}.</div>` : ""}` : `<div class="note">Solo el dueño del negocio puede conectar cuentas.</div>`}
+      <div class="card" style="margin-bottom:16px"><b>🤖 Conecta Claude</b><p class="muted sm" style="margin:6px 0 10px">Para que Claude lea tu bandeja, responda y programe publicaciones: en Claude → Configuración → Conectores → <i>Agregar conector personalizado</i>, pega esta dirección y entra con tu correo de aquí.</p>
+        <div class="row"><input readonly id="mcpUrl" value="${location.origin}/mcp" style="flex:1"><button class="btn sm" id="bCopy">Copiar</button></div></div>
+      <div class="card" style="padding:0;overflow:auto"><table><tr><th>Red</th><th>Cuenta</th><th>Estado</th><th></th></tr>
+      ${cuentas.length ? cuentas.map((c) => `<tr><td>${net(c.red)} ${RED[c.red]}</td><td><b>${esc(c.nombre)}</b>${c.handle ? `<div class="muted sm">${c.red === "instagram" ? "@" : ""}${esc(c.handle)}</div>` : ""}</td>
+        <td><span class="pill ${c.estado === "conectada" ? "ok" : "bad"}">${c.estado === "conectada" ? "Conectada" : "Volver a conectar"}</span>${c.error ? `<div class="sm" style="color:var(--warn);margin-top:6px">${esc(c.error)}</div>` : ""}${c.sync_en ? `<div class="muted sm">Revisada: ${fecha(new Date(c.sync_en).toISOString())}</div>` : ""}</td>
+        <td>${dueno ? `<button class="btn sm bad" data-q="${c.id}">Quitar</button>` : ""}</td></tr>`).join("") : `<tr><td colspan="4" class="empty">Sin cuentas conectadas.</td></tr>`}</table></div>`;
+    $("#bCopy").onclick = () => { navigator.clipboard?.writeText($("#mcpUrl").value).then(() => toast("Copiado"), () => $("#mcpUrl").select()); };
+    el.querySelectorAll("[data-c]").forEach((b) => (b.onclick = async () => { try { const { url } = await api("/api/conectar/" + b.dataset.c, { method: "POST", json: {} }); location.href = url; } catch (er) { toast(er.message); } }));
+    el.querySelectorAll("[data-q]").forEach((b) => (b.onclick = async () => { if (!confirm("¿Quitar esta cuenta? Se borran sus mensajes del panel.")) return; try { await api("/api/cuentas/" + b.dataset.q, { method: "DELETE" }); render(); } catch (er) { toast(er.message); } }));
+  },
+
+  async equipo(el) {
+    const { usuarios } = await api("/api/usuarios");
+    const dueno = ME.rol !== "equipo";
+    el.innerHTML = `<h2>Equipo</h2><p class="sub">Quién puede entrar a este negocio. El <b>dueño</b> conecta cuentas y agrega personas; el <b>equipo</b> responde y publica.</p>
+      <div class="grid g2" style="align-items:start"><div class="card" style="padding:0;overflow:auto"><table><tr><th>Nombre</th><th>Rol</th><th></th></tr>
+      ${usuarios.map((u) => `<tr><td><b>${esc(u.nombre)}</b><div class="muted sm">${esc(u.email)}</div></td><td>${u.rol === "dueno" ? "Dueño" : "Equipo"}</td><td>${dueno && u.id !== ME.id ? `<button class="btn sm bad" data-del="${u.id}">Quitar</button>` : ""}</td></tr>`).join("") || `<tr><td colspan="3" class="empty">Sin personas todavía.</td></tr>`}</table></div>
+      ${dueno ? `<form class="card" id="fUser"><h3 style="margin:0">Agregar persona</h3>
+        <label>Nombre</label><input name="nombre" required><label>Correo</label><input name="email" type="email" required>
+        <label>Contraseña inicial (mínimo 8)</label><input name="password" minlength="8" required>
+        <label>Rol</label><select name="rol"><option value="equipo">Equipo</option><option value="dueno">Dueño</option></select>
+        <div class="err" id="uErr"></div><button class="btn pri">Agregar</button></form>` : ""}</div>`;
+    $("#fUser") && ($("#fUser").onsubmit = async (e) => { e.preventDefault(); const f = new FormData(e.target); try { await api("/api/usuarios", { method: "POST", json: Object.fromEntries(f) }); toast("Persona agregada"); render(); } catch (er) { $("#uErr").textContent = er.message; } });
+    el.querySelectorAll("[data-del]").forEach((b) => (b.onclick = async () => { if (!confirm("¿Quitar a esta persona?")) return; try { await api("/api/usuarios/" + b.dataset.del, { method: "DELETE" }); render(); } catch (er) { toast(er.message); } }));
+  },
+
+  async negocios(el) {
+    if (ME.rol !== "plataforma") { el.innerHTML = `<div class="card empty">Solo para el administrador.</div>`; return; }
+    const { negocios } = await api("/api/negocios");
+    el.innerHTML = `<h2>Negocios</h2><p class="sub">Tus clientes. Cada uno tiene sus cuentas, bandeja y equipo por separado.</p>
+      <div class="grid g2" style="align-items:start"><div class="card" style="padding:0;overflow:auto"><table><tr><th>Negocio</th><th>Cuentas</th><th>Personas</th><th></th></tr>
+      ${negocios.map((n) => `<tr><td><b>${esc(n.nombre)}</b><div class="muted sm">${fecha(n.creado)}</div></td><td>${n.cuentas}</td><td>${n.usuarios}</td><td><button class="btn sm" data-go="${n.id}">Abrir</button></td></tr>`).join("") || `<tr><td colspan="4" class="empty">Aún no hay negocios.</td></tr>`}</table></div>
+      <form class="card" id="fNeg"><h3 style="margin:0">Nuevo negocio</h3>
+        <label>Nombre del negocio</label><input name="nombre" required>
+        <label>Nombre del dueño (opcional)</label><input name="dueno_nombre">
+        <label>Correo del dueño (opcional)</label><input name="dueno_email" type="email">
+        <label>Contraseña inicial del dueño</label><input name="dueno_password" minlength="8">
+        <div class="err" id="nErr"></div><button class="btn pri">Crear negocio</button></form></div>`;
+    $("#fNeg").onsubmit = async (e) => { e.preventDefault(); const b = Object.fromEntries(new FormData(e.target)); if (!b.dueno_email) { delete b.dueno_email; delete b.dueno_password; } try { const r = await api("/api/negocios", { method: "POST", json: b }); NEG = r.id; try { localStorage.setItem("rd_neg", NEG); } catch {} toast("Negocio creado"); await start(); location.hash = "#cuentas"; } catch (er) { $("#nErr").textContent = er.message; } };
+    el.querySelectorAll("[data-go]").forEach((b) => (b.onclick = () => { NEG = b.dataset.go; try { localStorage.setItem("rd_neg", NEG); } catch {} $("#selNeg").value = NEG; location.hash = "#inicio"; poll(); }));
+  },
+};
+
+async function detalle(id) {
+  const box = $("#det"); box.innerHTML = `<div class="empty">Cargando…</div>`;
+  try {
+    const { mensaje: m, respuestas, hilo } = await api("/api/mensajes/" + id);
+    const otros = hilo.filter((h) => h.id !== m.id).reverse();
+    box.innerHTML = `<div class="row" style="justify-content:space-between"><div class="row">${net(m.red)}<b>${esc(m.autor_nombre)}</b> ${stars(m.calificacion)}</div><span class="muted sm">${TIPO[m.tipo]} · ${fecha(m.recibido_en)}</span></div>
+      ${otros.length ? `<div class="muted sm" style="margin-top:10px">Antes en esta conversación:</div>${otros.map((h) => `<div class="bubble" style="opacity:.75"><b class="sm">${esc(h.autor_nombre)}</b><br>${esc(h.texto)}</div>`).join("")}` : ""}
+      <div class="bubble">${esc(m.texto)}</div>
+      ${m.extra?.respuesta ? `<div class="bubble me"><b class="sm">Respuesta publicada</b><br>${esc(m.extra.respuesta)}</div>` : ""}
+      ${respuestas.map((r) => `<div class="bubble me"><b class="sm">${esc(r.usuario || "Tú")} · ${r.estado === "enviada" ? "✅ enviada" : "❌ " + esc(r.error || "falló")}</b><br>${esc(r.texto)}</div>`).join("")}
+      ${m.permalink ? `<a class="sm" href="${esc(m.permalink)}" target="_blank" rel="noopener">Ver en la red social ↗</a>` : ""}
+      <label>${m.tipo === "resena" ? (m.respondido ? "Cambiar respuesta pública" : "Responder públicamente a la reseña") : m.tipo === "dm" ? "Responder por mensaje privado" : "Responder al comentario"}</label>
+      <textarea id="rTexto" placeholder="Escribe tu respuesta…"></textarea>
+      <div class="row" style="margin-top:10px"><button class="btn pri" id="rEnviar">Enviar</button>
+        ${m.tipo === "comentario" ? `<button class="btn" id="rOcultar">🙈 Ocultar comentario</button>` : ""}
+        <button class="btn" data-e="resuelto">✔ Resuelto</button><button class="btn" data-e="archivado">Archivar</button></div>`;
+    $("#rEnviar").onclick = async (e) => { e.target.disabled = true; try { await api(`/api/mensajes/${id}/responder`, { method: "POST", json: { texto: $("#rTexto").value } }); toast("Respuesta enviada ✅"); render(); poll(); } catch (er) { toast(er.message); e.target.disabled = false; } };
+    $("#rOcultar") && ($("#rOcultar").onclick = async () => { try { await api(`/api/mensajes/${id}/ocultar`, { method: "POST", json: {} }); toast("Comentario oculto"); render(); } catch (er) { toast(er.message); } });
+    box.querySelectorAll("[data-e]").forEach((b) => (b.onclick = async () => { await api("/api/mensajes/" + id, { method: "PATCH", json: { estado: b.dataset.e } }); toast("Listo"); render(); poll(); }));
+  } catch (er) { box.innerHTML = `<div class="empty">${esc(er.message)}</div>`; }
+}
+
+(async () => {
+  const st = await fetch("/api/estado").then((r) => r.json()).catch(() => ({}));
+  if (st.instalacion_pendiente) return show("vInstalar");
+  if (!TOKEN) return show("vLogin");
+  try { await start(); } catch { show("vLogin"); }
+})();
+</script>
+</body>
+</html>
